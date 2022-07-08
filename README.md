@@ -78,7 +78,7 @@ The final directories for VidVRD dataset should look like:
 ```
 
 #### VidVRD
-Put the .mp4 files into `./data/vidvrd/videos/`. Put the three documents `test`, `train` and `videos` from the [vidvrd-annoataions](https://zdtnag7mmr.larksuite.com/file/boxuseoWLGxId1KmbtQyxj8HPre) into `./data/vidvrd/annotations/`.
+Put the .mp4 files into `./data/vidvrd/videos/`. Put the three documents `test`, `train` and `videos` from the [vidvrd-annoataions](https://zdtnag7mmr.larksuite.com/file/boxuseoWLGxId1KmbtQyxj8HPre) into `./data/vidvrd/annotations/`. (If the links are invalid, you can refer to their offical website: [ImageNet-VidVRD dataset](https://xdshang.github.io/docs/imagenet-vidvrd.html))
 
 Download precomputed precomputed features, model and detected relations from [here](https://internal-api-drive-stream.larksuite.com/space/api/box/stream/download/all/boxusS8Z0kwEizoPPh5h7vx7Usf/) (or [here](https://drive.google.com/drive/folders/1DRy5OXhvv36SWKHFcW6GAX69nbwPkYRN?usp=sharing)). Extract `features` and `models` into `./data/vidvrd/`.
 
@@ -172,7 +172,7 @@ Download model weights from [here](https://drive.google.com/drive/folders/1eaJPa
 
 - pretrained object detection
 - TRACE trained on VidVRD in  `detection_models/vidvrd/trained_rel`
-- TRACE trained on AG in `detection_models/ag/trained_rel` (to-do)
+- TRACE trained on AG in `detection_models/ag/trained_rel` 
 
 ## Performance
 
@@ -190,7 +190,11 @@ VidVrd, detected box
 | :-------: | :------: | :------: | :-------: |
 | TRACE |      16.3      |   9.2   |   11.2   |
 
-![gt_vidvrd](./det_vidvrd.png)
+![det_vidvrd](./det_vidvrd.png)
+
+AG, detected box
+
+![det_ag](./ag_sgdet.png)
 
 ## Training Relationship Detection Models
 
@@ -284,14 +288,14 @@ This project is built on top of [ContrastiveLosses4VRD](https://github.com/NVIDI
 ## Citing
 If you use this code in your research, please use the following BibTeX entry.
 ```
-@article{Target_Adaptive_Context_Aggregation_for_Video_Scene_Graph_Generation,
+@inproceedings{Target_Adaptive_Context_Aggregation_for_Video_Scene_Graph_Generation,
   author    = {Yao Teng and
                Limin Wang and
                Zhifeng Li and
                Gangshan Wu},
   title     = {Target Adaptive Context Aggregation for Video Scene Graph Generation},
-  journal   = {CoRR},
-  volume    = {abs/2108.08121},
+  booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision},
+  pages     = {13688--13697},
   year      = {2021}
 }
 ```
