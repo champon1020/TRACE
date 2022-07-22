@@ -134,8 +134,10 @@ def log_subprocess_output(i, p, output_dir, tag, start, end):
         # Stream the piped stdout from the first subprocess in realtime
         with open(outfile, 'w') as f:
             for line in iter(p.stdout.readline, b''):
-                print(line.rstrip().decode('ascii'))
-                f.write(str(line, encoding='ascii'))
+                # print(line.rstrip().decode('ascii'))
+                # f.write(str(line, encoding='ascii'))
+                print(line.rstrip().decode('utf-8'))
+                f.write(str(line, encoding='utf-8'))
         p.stdout.close()
         ret = p.wait()
     else:
