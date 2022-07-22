@@ -16,3 +16,8 @@ data/obj_embed
 
 detection_models
 results
+
+Detectron_pytorch/lib/utils/cython_bbox.c
+Detectron_pytorch/lib/utils/cython_nms.c
+lib/utils_rel/cython_bbox_rel.c
+lib/utils_rel/cython_bbox_rel.cpython-38-x86_64-linux-gnu.so
