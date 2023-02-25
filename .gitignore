@@ -4,13 +4,10 @@ Detectron_pytorch/lib/detectron_pytorch.egg-info
 lib/utils_rel/cython_bbox_rel.cpython-39-x86_64-linux-gnu.so
 
 data/ag
-data/vidvrd/features
-data/vidvrd/models
-data/vidvrd/frames
-data/vidvrd/videos
-data/vidvrd/vidvrd_pre_features.zip
+data/cache/*
+data/vidvrd/*
 data/vidvrd/annotations/*
-data/obj_embed
+data/obj_embed/*
 !data/vidvrd/annotations/object.txt
 !data/vidvrd/annotations/predicate.txt
 
@@ -21,3 +18,5 @@ Detectron_pytorch/lib/utils/cython_bbox.c
 Detectron_pytorch/lib/utils/cython_nms.c
 lib/utils_rel/cython_bbox_rel.c
 lib/utils_rel/cython_bbox_rel.cpython-38-x86_64-linux-gnu.so
+
+Outputs/*
