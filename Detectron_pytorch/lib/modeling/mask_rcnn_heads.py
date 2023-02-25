@@ -1,24 +1,24 @@
 from functools import partial
-import numpy as np
 
+import nn as mynn
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-from torch.autograd import Variable
-
+import utils.net as net_utils
 from core.config import cfg
 from modeling import ResNet
-import nn as mynn
-import utils.net as net_utils
-
+from torch.autograd import Variable
 
 # ---------------------------------------------------------------------------- #
 # Mask R-CNN outputs and losses
 # ---------------------------------------------------------------------------- #
 
+
 class mask_rcnn_outputs(nn.Module):
     """Mask R-CNN specific outputs: either mask logits or probs."""
+
     def __init__(self, dim_in):
         super().__init__()
         self.dim_in = dim_in
@@ -32,12 +32,16 @@ class mask_rcnn_outputs(nn.Module):
             self.classify = nn.Conv2d(dim_in, n_classes, 1, 1, 0)
             if cfg.MRCNN.UPSAMPLE_RATIO > 1:
                 self.upsample = mynn.BilinearInterpolation2d(
-                    n_classes, n_classes, cfg.MRCNN.UPSAMPLE_RATIO)
+                    n_classes, n_classes, cfg.MRCNN.UPSAMPLE_RATIO
+                )
         self._init_weights()
 
     def _init_weights(self):
-        if not cfg.MRCNN.USE_FC_OUTPUT and cfg.MRCNN.CLS_SPECIFIC_MASK and \
-                cfg.MRCNN.CONV_INIT=='MSRAFill':
+        if (
+            not cfg.MRCNN.USE_FC_OUTPUT
+            and cfg.MRCNN.CLS_SPECIFIC_MASK
+            and cfg.MRCNN.CONV_INIT == "MSRAFill"
+        ):
             # Use GaussianFill for class-agnostic mask prediction; fills based on
             # fan-in can be too large in this case and cause divergence
             weight_init_func = mynn.init.MSRAFill
@@ -48,14 +52,16 @@ class mask_rcnn_outputs(nn.Module):
 
     def detectron_weight_mapping(self):
         mapping = {
-            'classify.weight': 'mask_fcn_logits_w',
-            'classify.bias': 'mask_fcn_logits_b'
+            "classify.weight": "mask_fcn_logits_w",
+            "classify.bias": "mask_fcn_logits_b",
         }
-        if hasattr(self, 'upsample'):
-            mapping.update({
-                'upsample.upconv.weight': None,  # don't load from or save to checkpoint
-                'upsample.upconv.bias': None
-            })
+        if hasattr(self, "upsample"):
+            mapping.update(
+                {
+                    "upsample.upconv.weight": None,  # don't load from or save to checkpoint
+                    "upsample.upconv.bias": None,
+                }
+            )
         orphan_in_detectron = []
         return mapping, orphan_in_detectron
 
@@ -91,10 +97,11 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     """Mask R-CNN specific losses."""
     n_rois, n_classes, _, _ = masks_pred.size()
     device_id = masks_pred.get_device()
-    masks_gt = Variable(torch.from_numpy(masks_int32.astype('float32'))).cuda(device_id)
+    masks_gt = Variable(torch.from_numpy(masks_int32.astype("float32"))).cuda(device_id)
     weight = (masks_gt > -1).float()  # masks_int32 {1, 0, -1}, -1 means ignore
     loss = F.binary_cross_entropy_with_logits(
-        masks_pred.view(n_rois, -1), masks_gt, weight, size_average=False)
+        masks_pred.view(n_rois, -1), masks_gt, weight, size_average=False
+    )
     loss /= weight.sum()
     return loss * cfg.MRCNN.WEIGHT_LOSS_MASK
 
@@ -103,29 +110,25 @@ def mask_rcnn_losses(masks_pred, masks_int32):
 # Mask heads
 # ---------------------------------------------------------------------------- #
 
+
 def mask_rcnn_fcn_head_v1up4convs(dim_in, roi_xform_func, spatial_scale):
     """v1up design: 4 * (conv 3x3), convT 2x2."""
-    return mask_rcnn_fcn_head_v1upXconvs(
-        dim_in, roi_xform_func, spatial_scale, 4
-    )
+    return mask_rcnn_fcn_head_v1upXconvs(dim_in, roi_xform_func, spatial_scale, 4)
 
 
 def mask_rcnn_fcn_head_v1up4convs_gn(dim_in, roi_xform_func, spatial_scale):
     """v1up design: 4 * (conv 3x3), convT 2x2, with GroupNorm"""
-    return mask_rcnn_fcn_head_v1upXconvs_gn(
-        dim_in, roi_xform_func, spatial_scale, 4
-    )
+    return mask_rcnn_fcn_head_v1upXconvs_gn(dim_in, roi_xform_func, spatial_scale, 4)
 
 
 def mask_rcnn_fcn_head_v1up(dim_in, roi_xform_func, spatial_scale):
     """v1up design: 2 * (conv 3x3), convT 2x2."""
-    return mask_rcnn_fcn_head_v1upXconvs(
-        dim_in, roi_xform_func, spatial_scale, 2
-    )
+    return mask_rcnn_fcn_head_v1upXconvs(dim_in, roi_xform_func, spatial_scale, 2)
 
 
 class mask_rcnn_fcn_head_v1upXconvs(nn.Module):
     """v1upXconvs design: X * (conv 3x3), convT 2x2."""
+
     def __init__(self, dim_in, roi_xform_func, spatial_scale, num_convs):
         super().__init__()
         self.dim_in = dim_in
@@ -139,10 +142,14 @@ class mask_rcnn_fcn_head_v1upXconvs(nn.Module):
 
         module_list = []
         for i in range(num_convs):
-            module_list.extend([
-                nn.Conv2d(dim_in, dim_inner, 3, 1, padding=1*dilation, dilation=dilation),
-                nn.ReLU(inplace=True)
-            ])
+            module_list.extend(
+                [
+                    nn.Conv2d(
+                        dim_in, dim_inner, 3, 1, padding=1 * dilation, dilation=dilation
+                    ),
+                    nn.ReLU(inplace=True),
+                ]
+            )
             dim_in = dim_inner
         self.conv_fcn = nn.Sequential(*module_list)
 
@@ -153,9 +160,9 @@ class mask_rcnn_fcn_head_v1upXconvs(nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
-            if cfg.MRCNN.CONV_INIT == 'GaussianFill':
+            if cfg.MRCNN.CONV_INIT == "GaussianFill":
                 init.normal_(m.weight, std=0.001)
-            elif cfg.MRCNN.CONV_INIT == 'MSRAFill':
+            elif cfg.MRCNN.CONV_INIT == "MSRAFill":
                 mynn.init.MSRAFill(m.weight)
             else:
                 raise ValueError
@@ -164,25 +171,27 @@ class mask_rcnn_fcn_head_v1upXconvs(nn.Module):
     def detectron_weight_mapping(self):
         mapping_to_detectron = {}
         for i in range(self.num_convs):
-            mapping_to_detectron.update({
-                'conv_fcn.%d.weight' % (2*i): '_[mask]_fcn%d_w' % (i+1),
-                'conv_fcn.%d.bias' % (2*i): '_[mask]_fcn%d_b' % (i+1)
-            })
-        mapping_to_detectron.update({
-            'upconv.weight': 'conv5_mask_w',
-            'upconv.bias': 'conv5_mask_b'
-        })
+            mapping_to_detectron.update(
+                {
+                    "conv_fcn.%d.weight" % (2 * i): "_[mask]_fcn%d_w" % (i + 1),
+                    "conv_fcn.%d.bias" % (2 * i): "_[mask]_fcn%d_b" % (i + 1),
+                }
+            )
+        mapping_to_detectron.update(
+            {"upconv.weight": "conv5_mask_w", "upconv.bias": "conv5_mask_b"}
+        )
 
         return mapping_to_detectron, []
 
     def forward(self, x, rpn_ret):
         x = self.roi_xform(
-            x, rpn_ret,
-            blob_rois='mask_rois',
+            x,
+            rpn_ret,
+            blob_rois="mask_rois",
             method=cfg.MRCNN.ROI_XFORM_METHOD,
             resolution=cfg.MRCNN.ROI_XFORM_RESOLUTION,
             spatial_scale=self.spatial_scale,
-            sampling_ratio=cfg.MRCNN.ROI_XFORM_SAMPLING_RATIO
+            sampling_ratio=cfg.MRCNN.ROI_XFORM_SAMPLING_RATIO,
         )
         x = self.conv_fcn(x)
         return F.relu(self.upconv(x), inplace=True)
@@ -190,6 +199,7 @@ class mask_rcnn_fcn_head_v1upXconvs(nn.Module):
 
 class mask_rcnn_fcn_head_v1upXconvs_gn(nn.Module):
     """v1upXconvs design: X * (conv 3x3), convT 2x2, with GroupNorm"""
+
     def __init__(self, dim_in, roi_xform_func, spatial_scale, num_convs):
         super().__init__()
         self.dim_in = dim_in
@@ -203,11 +213,25 @@ class mask_rcnn_fcn_head_v1upXconvs_gn(nn.Module):
 
         module_list = []
         for i in range(num_convs):
-            module_list.extend([
-                nn.Conv2d(dim_in, dim_inner, 3, 1, padding=1*dilation, dilation=dilation, bias=False),
-                nn.GroupNorm(net_utils.get_group_gn(dim_inner), dim_inner, eps=cfg.GROUP_NORM.EPSILON),
-                nn.ReLU(inplace=True)
-            ])
+            module_list.extend(
+                [
+                    nn.Conv2d(
+                        dim_in,
+                        dim_inner,
+                        3,
+                        1,
+                        padding=1 * dilation,
+                        dilation=dilation,
+                        bias=False,
+                    ),
+                    nn.GroupNorm(
+                        net_utils.get_group_gn(dim_inner),
+                        dim_inner,
+                        eps=cfg.GROUP_NORM.EPSILON,
+                    ),
+                    nn.ReLU(inplace=True),
+                ]
+            )
             dim_in = dim_inner
         self.conv_fcn = nn.Sequential(*module_list)
 
@@ -218,9 +242,9 @@ class mask_rcnn_fcn_head_v1upXconvs_gn(nn.Module):
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
-            if cfg.MRCNN.CONV_INIT == 'GaussianFill':
+            if cfg.MRCNN.CONV_INIT == "GaussianFill":
                 init.normal_(m.weight, std=0.001)
-            elif cfg.MRCNN.CONV_INIT == 'MSRAFill':
+            elif cfg.MRCNN.CONV_INIT == "MSRAFill":
                 mynn.init.MSRAFill(m.weight)
             else:
                 raise ValueError
@@ -230,26 +254,28 @@ class mask_rcnn_fcn_head_v1upXconvs_gn(nn.Module):
     def detectron_weight_mapping(self):
         mapping_to_detectron = {}
         for i in range(self.num_convs):
-            mapping_to_detectron.update({
-                'conv_fcn.%d.weight' % (3*i): '_mask_fcn%d_w' % (i+1),
-                'conv_fcn.%d.weight' % (3*i+1): '_mask_fcn%d_gn_s' % (i+1),
-                'conv_fcn.%d.bias' % (3*i+1): '_mask_fcn%d_gn_b' % (i+1)
-            })
-        mapping_to_detectron.update({
-            'upconv.weight': 'conv5_mask_w',
-            'upconv.bias': 'conv5_mask_b'
-        })
+            mapping_to_detectron.update(
+                {
+                    "conv_fcn.%d.weight" % (3 * i): "_mask_fcn%d_w" % (i + 1),
+                    "conv_fcn.%d.weight" % (3 * i + 1): "_mask_fcn%d_gn_s" % (i + 1),
+                    "conv_fcn.%d.bias" % (3 * i + 1): "_mask_fcn%d_gn_b" % (i + 1),
+                }
+            )
+        mapping_to_detectron.update(
+            {"upconv.weight": "conv5_mask_w", "upconv.bias": "conv5_mask_b"}
+        )
 
         return mapping_to_detectron, []
 
     def forward(self, x, rpn_ret):
         x = self.roi_xform(
-            x, rpn_ret,
-            blob_rois='mask_rois',
+            x,
+            rpn_ret,
+            blob_rois="mask_rois",
             method=cfg.MRCNN.ROI_XFORM_METHOD,
             resolution=cfg.MRCNN.ROI_XFORM_RESOLUTION,
             spatial_scale=self.spatial_scale,
-            sampling_ratio=cfg.MRCNN.ROI_XFORM_SAMPLING_RATIO
+            sampling_ratio=cfg.MRCNN.ROI_XFORM_SAMPLING_RATIO,
         )
         x = self.conv_fcn(x)
         return F.relu(self.upconv(x), inplace=True)
@@ -262,6 +288,7 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
 
     v0upshare design: conv5, convT 2x2.
     """
+
     def __init__(self, dim_in, roi_xform_func, spatial_scale):
         super().__init__()
         self.dim_in = dim_in
@@ -278,27 +305,28 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
         self._init_weights()
 
     def _init_weights(self):
-        if cfg.MRCNN.CONV_INIT == 'GaussianFill':
+        if cfg.MRCNN.CONV_INIT == "GaussianFill":
             init.normal_(self.upconv5.weight, std=0.001)
-        elif cfg.MRCNN.CONV_INIT == 'MSRAFill':
+        elif cfg.MRCNN.CONV_INIT == "MSRAFill":
             mynn.init.MSRAFill(self.upconv5.weight)
         init.constant_(self.upconv5.bias, 0)
 
     def share_res5_module(self, res5_target):
-        """ Share res5 block with box head on training """
+        """Share res5 block with box head on training"""
         self.res5 = res5_target
 
     def detectron_weight_mapping(self):
-        detectron_weight_mapping, orphan_in_detectron = \
-          ResNet.residual_stage_detectron_mapping(self.res5, 'res5', 3, 5)
+        (
+            detectron_weight_mapping,
+            orphan_in_detectron,
+        ) = ResNet.residual_stage_detectron_mapping(self.res5, "res5", 3, 5)
         # Assign None for res5 modules, do not load from or save to checkpoint
         for k in detectron_weight_mapping:
             detectron_weight_mapping[k] = None
 
-        detectron_weight_mapping.update({
-            'upconv5.weight': 'conv5_mask_w',
-            'upconv5.bias': 'conv5_mask_b'
-        })
+        detectron_weight_mapping.update(
+            {"upconv5.weight": "conv5_mask_w", "upconv5.bias": "conv5_mask_b"}
+        )
         return detectron_weight_mapping, orphan_in_detectron
 
     def forward(self, x, rpn_ret, roi_has_mask_int32=None):
@@ -314,12 +342,13 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
             # On testing, the computation is not shared with bbox head. This time input `x`
             # is the output features from the backbone network
             x = self.roi_xform(
-                x, rpn_ret,
-                blob_rois='mask_rois',
+                x,
+                rpn_ret,
+                blob_rois="mask_rois",
                 method=cfg.MRCNN.ROI_XFORM_METHOD,
                 resolution=cfg.MRCNN.ROI_XFORM_RESOLUTION,
                 spatial_scale=self.spatial_scale,
-                sampling_ratio=cfg.MRCNN.ROI_XFORM_SAMPLING_RATIO
+                sampling_ratio=cfg.MRCNN.ROI_XFORM_SAMPLING_RATIO,
             )
             x = self.res5(x)
         x = self.upconv5(x)
@@ -329,6 +358,7 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
 
 class mask_rcnn_fcn_head_v0up(nn.Module):
     """v0up design: conv5, deconv 2x2 (no weight sharing with the box head)."""
+
     def __init__(self, dim_in, roi_xform_func, spatial_scale):
         super().__init__()
         self.dim_in = dim_in
@@ -342,33 +372,37 @@ class mask_rcnn_fcn_head_v0up(nn.Module):
         # Freeze all bn (affine) layers in resnet!!!
         self.res5.apply(
             lambda m: ResNet.freeze_params(m)
-            if isinstance(m, mynn.AffineChannel2d) else None)
+            if isinstance(m, mynn.AffineChannel2d)
+            else None
+        )
         self._init_weights()
 
     def _init_weights(self):
-        if cfg.MRCNN.CONV_INIT == 'GaussianFill':
+        if cfg.MRCNN.CONV_INIT == "GaussianFill":
             init.normal_(self.upconv5.weight, std=0.001)
-        elif cfg.MRCNN.CONV_INIT == 'MSRAFill':
+        elif cfg.MRCNN.CONV_INIT == "MSRAFill":
             mynn.init.MSRAFill(self.upconv5.weight)
         init.constant_(self.upconv5.bias, 0)
 
     def detectron_weight_mapping(self):
-        detectron_weight_mapping, orphan_in_detectron = \
-          ResNet.residual_stage_detectron_mapping(self.res5, 'res5', 3, 5)
-        detectron_weight_mapping.update({
-            'upconv5.weight': 'conv5_mask_w',
-            'upconv5.bias': 'conv5_mask_b'
-        })
+        (
+            detectron_weight_mapping,
+            orphan_in_detectron,
+        ) = ResNet.residual_stage_detectron_mapping(self.res5, "res5", 3, 5)
+        detectron_weight_mapping.update(
+            {"upconv5.weight": "conv5_mask_w", "upconv5.bias": "conv5_mask_b"}
+        )
         return detectron_weight_mapping, orphan_in_detectron
 
     def forward(self, x, rpn_ret):
         x = self.roi_xform(
-            x, rpn_ret,
-            blob_rois='mask_rois',
+            x,
+            rpn_ret,
+            blob_rois="mask_rois",
             method=cfg.MRCNN.ROI_XFORM_METHOD,
             resolution=cfg.MRCNN.ROI_XFORM_RESOLUTION,
             spatial_scale=self.spatial_scale,
-            sampling_ratio=cfg.MRCNN.ROI_XFORM_SAMPLING_RATIO
+            sampling_ratio=cfg.MRCNN.ROI_XFORM_SAMPLING_RATIO,
         )
         x = self.res5(x)
         # print(x.size()) e.g. (128, 2048, 7, 7)

@@ -1,9 +1,8 @@
 """Normalization Layers"""
 
+import nn.functional as myF
 import torch
 import torch.nn as nn
-
-import nn.functional as myF
 
 
 class GroupNorm(nn.Module):
@@ -17,8 +16,8 @@ class GroupNorm(nn.Module):
             self.weight = nn.Parameter(torch.Tensor(num_channels))
             self.bias = nn.Parameter(torch.Tensor(num_channels))
         else:
-            self.register_parameter('weight', None)
-            self.register_parameter('bias', None)
+            self.register_parameter("weight", None)
+            self.register_parameter("bias", None)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -27,10 +26,9 @@ class GroupNorm(nn.Module):
             self.bias.data.zero_()
 
     def forward(self, x):
-        return myF.group_norm(
-            x, self.num_groups, self.weight, self.bias, self.eps
-        )
+        return myF.group_norm(x, self.num_groups, self.weight, self.bias, self.eps)
 
     def extra_repr(self):
-        return '{num_groups}, {num_channels}, eps={eps}, ' \
-            'affine={affine}'.format(**self.__dict__)
+        return "{num_groups}, {num_channels}, eps={eps}, " "affine={affine}".format(
+            **self.__dict__
+        )

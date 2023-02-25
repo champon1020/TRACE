@@ -25,26 +25,23 @@
 # Written by Ross Girshick
 # --------------------------------------------------------
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
 from collections import defaultdict
+
 import cv2
 import numpy as np
 import pycocotools.mask as mask_util
-
-from torch.autograd import Variable
 import torch
-
-from core.config import cfg
-from utils.timer import Timer
-import utils.boxes as box_utils
 import utils.blob as blob_utils
+import utils.boxes as box_utils
 import utils.fpn as fpn_utils
 import utils.image as image_utils
 import utils.keypoints as keypoint_utils
+from core.config import cfg
+from torch.autograd import Variable
+from utils.timer import Timer
 
 
 def im_detect_all(model, im, box_proposals=None, timers=None):
@@ -62,48 +59,50 @@ def im_detect_all(model, im, box_proposals=None, timers=None):
     if timers is None:
         timers = defaultdict(Timer)
 
-    timers['im_detect_bbox'].tic()
+    timers["im_detect_bbox"].tic()
     if cfg.TEST.BBOX_AUG.ENABLED:
         scores, boxes, im_scale, blob_conv = im_detect_bbox_aug(
-            model, im, box_proposals)
+            model, im, box_proposals
+        )
     else:
         scores, boxes, im_scale, blob_conv = im_detect_bbox(
-            model, im, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, box_proposals)
-    timers['im_detect_bbox'].toc()
+            model, im, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, box_proposals
+        )
+    timers["im_detect_bbox"].toc()
 
     # score and boxes are from the whole image after score thresholding and nms
     # (they are not separated by class) (numpy.ndarray)
     # cls_boxes boxes and scores are separated by class and in the format used
     # for evaluating results
-    timers['misc_bbox'].tic()
+    timers["misc_bbox"].tic()
     scores, boxes, cls_boxes = box_results_with_nms_and_limit(scores, boxes)
-    timers['misc_bbox'].toc()
+    timers["misc_bbox"].toc()
 
     if cfg.MODEL.MASK_ON and boxes.shape[0] > 0:
-        timers['im_detect_mask'].tic()
+        timers["im_detect_mask"].tic()
         if cfg.TEST.MASK_AUG.ENABLED:
             masks = im_detect_mask_aug(model, im, boxes, im_scale, blob_conv)
         else:
             masks = im_detect_mask(model, im_scale, boxes, blob_conv)
-        timers['im_detect_mask'].toc()
+        timers["im_detect_mask"].toc()
 
-        timers['misc_mask'].tic()
+        timers["misc_mask"].tic()
         cls_segms = segm_results(cls_boxes, masks, boxes, im.shape[0], im.shape[1])
-        timers['misc_mask'].toc()
+        timers["misc_mask"].toc()
     else:
         cls_segms = None
 
     if cfg.MODEL.KEYPOINTS_ON and boxes.shape[0] > 0:
-        timers['im_detect_keypoints'].tic()
+        timers["im_detect_keypoints"].tic()
         if cfg.TEST.KPS_AUG.ENABLED:
             heatmaps = im_detect_keypoints_aug(model, im, boxes, im_scale, blob_conv)
         else:
             heatmaps = im_detect_keypoints(model, im_scale, boxes, blob_conv)
-        timers['im_detect_keypoints'].toc()
+        timers["im_detect_keypoints"].toc()
 
-        timers['misc_keypoints'].tic()
+        timers["misc_keypoints"].tic()
         cls_keyps = keypoint_results(cls_boxes, heatmaps, boxes)
-        timers['misc_keypoints'].toc()
+        timers["misc_keypoints"].toc()
     else:
         cls_keyps = None
 
@@ -114,10 +113,12 @@ def im_conv_body_only(model, im, target_scale, target_max_size):
     inputs, im_scale = _get_blobs(im, None, target_scale, target_max_size)
 
     if cfg.PYTORCH_VERSION_LESS_THAN_040:
-        inputs['data'] = Variable(torch.from_numpy(inputs['data']), volatile=True).cuda()
+        inputs["data"] = Variable(
+            torch.from_numpy(inputs["data"]), volatile=True
+        ).cuda()
     else:
-        inputs['data'] = torch.from_numpy(inputs['data']).cuda()
-    inputs.pop('im_info')
+        inputs["data"] = torch.from_numpy(inputs["data"]).cuda()
+    inputs.pop("im_info")
 
     blob_conv = model.module.convbody_net(**inputs)
 
@@ -131,39 +132,39 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
 
     if cfg.DEDUP_BOXES > 0 and not cfg.MODEL.FASTER_RCNN:
         v = np.array([1, 1e3, 1e6, 1e9, 1e12])
-        hashes = np.round(inputs['rois'] * cfg.DEDUP_BOXES).dot(v)
-        _, index, inv_index = np.unique(
-            hashes, return_index=True, return_inverse=True
-        )
-        inputs['rois'] = inputs['rois'][index, :]
+        hashes = np.round(inputs["rois"] * cfg.DEDUP_BOXES).dot(v)
+        _, index, inv_index = np.unique(hashes, return_index=True, return_inverse=True)
+        inputs["rois"] = inputs["rois"][index, :]
         boxes = boxes[index, :]
 
     # Add multi-level rois for FPN
     if cfg.FPN.MULTILEVEL_ROIS and not cfg.MODEL.FASTER_RCNN:
-        _add_multilevel_rois_for_test(inputs, 'rois')
+        _add_multilevel_rois_for_test(inputs, "rois")
 
     if cfg.PYTORCH_VERSION_LESS_THAN_040:
-        inputs['data'] = [Variable(torch.from_numpy(inputs['data']), volatile=True)]
-        inputs['im_info'] = [Variable(torch.from_numpy(inputs['im_info']), volatile=True)]
+        inputs["data"] = [Variable(torch.from_numpy(inputs["data"]), volatile=True)]
+        inputs["im_info"] = [
+            Variable(torch.from_numpy(inputs["im_info"]), volatile=True)
+        ]
     else:
-        inputs['data'] = [torch.from_numpy(inputs['data'])]
-        inputs['im_info'] = [torch.from_numpy(inputs['im_info'])]
+        inputs["data"] = [torch.from_numpy(inputs["data"])]
+        inputs["im_info"] = [torch.from_numpy(inputs["im_info"])]
 
     return_dict = model(**inputs)
 
     if cfg.MODEL.FASTER_RCNN:
-        rois = return_dict['rois'].data.cpu().numpy()
+        rois = return_dict["rois"].data.cpu().numpy()
         # unscale back to raw image space
         boxes = rois[:, 1:5] / im_scale
 
     # cls prob (activations after softmax)
-    scores = return_dict['cls_score'].data.cpu().numpy().squeeze()
+    scores = return_dict["cls_score"].data.cpu().numpy().squeeze()
     # In case there is 1 proposal
     scores = scores.reshape([-1, scores.shape[-1]])
 
     if cfg.TEST.BBOX_REG:
         # Apply bounding-box regression deltas
-        box_deltas = return_dict['bbox_pred'].data.cpu().numpy().squeeze()
+        box_deltas = return_dict["bbox_pred"].data.cpu().numpy().squeeze()
         # In case there is 1 proposal
         box_deltas = box_deltas.reshape([-1, box_deltas.shape[-1]])
         if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG:
@@ -171,9 +172,13 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
             box_deltas = box_deltas[:, -4:]
         if cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED:
             # (legacy) Optionally normalize targets by a precomputed mean and stdev
-            box_deltas = box_deltas.view(-1, 4) * cfg.TRAIN.BBOX_NORMALIZE_STDS \
-                         + cfg.TRAIN.BBOX_NORMALIZE_MEANS
-        pred_boxes = box_utils.bbox_transform(boxes, box_deltas, cfg.MODEL.BBOX_REG_WEIGHTS)
+            box_deltas = (
+                box_deltas.view(-1, 4) * cfg.TRAIN.BBOX_NORMALIZE_STDS
+                + cfg.TRAIN.BBOX_NORMALIZE_MEANS
+            )
+        pred_boxes = box_utils.bbox_transform(
+            boxes, box_deltas, cfg.MODEL.BBOX_REG_WEIGHTS
+        )
         pred_boxes = box_utils.clip_tiled_boxes(pred_boxes, im.shape)
         if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG:
             pred_boxes = np.tile(pred_boxes, (1, scores.shape[1]))
@@ -186,24 +191,27 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
         scores = scores[inv_index, :]
         pred_boxes = pred_boxes[inv_index, :]
 
-    return scores, pred_boxes, im_scale, return_dict['blob_conv']
+    return scores, pred_boxes, im_scale, return_dict["blob_conv"]
 
 
 def im_detect_bbox_aug(model, im, box_proposals=None):
     """Performs bbox detection with test-time augmentations.
     Function signature is the same as for im_detect_bbox.
     """
-    assert not cfg.TEST.BBOX_AUG.SCALE_SIZE_DEP, \
-        'Size dependent scaling not implemented'
-    assert not cfg.TEST.BBOX_AUG.SCORE_HEUR == 'UNION' or \
-        cfg.TEST.BBOX_AUG.COORD_HEUR == 'UNION', \
-        'Coord heuristic must be union whenever score heuristic is union'
-    assert not cfg.TEST.BBOX_AUG.COORD_HEUR == 'UNION' or \
-        cfg.TEST.BBOX_AUG.SCORE_HEUR == 'UNION', \
-        'Score heuristic must be union whenever coord heuristic is union'
-    assert not cfg.MODEL.FASTER_RCNN or \
-        cfg.TEST.BBOX_AUG.SCORE_HEUR == 'UNION', \
-        'Union heuristic must be used to combine Faster RCNN predictions'
+    assert (
+        not cfg.TEST.BBOX_AUG.SCALE_SIZE_DEP
+    ), "Size dependent scaling not implemented"
+    assert (
+        not cfg.TEST.BBOX_AUG.SCORE_HEUR == "UNION"
+        or cfg.TEST.BBOX_AUG.COORD_HEUR == "UNION"
+    ), "Coord heuristic must be union whenever score heuristic is union"
+    assert (
+        not cfg.TEST.BBOX_AUG.COORD_HEUR == "UNION"
+        or cfg.TEST.BBOX_AUG.SCORE_HEUR == "UNION"
+    ), "Score heuristic must be union whenever coord heuristic is union"
+    assert (
+        not cfg.MODEL.FASTER_RCNN or cfg.TEST.BBOX_AUG.SCORE_HEUR == "UNION"
+    ), "Union heuristic must be used to combine Faster RCNN predictions"
 
     # Collect detections computed under different transformations
     scores_ts = []
@@ -216,11 +224,7 @@ def im_detect_bbox_aug(model, im, box_proposals=None):
     # Perform detection on the horizontally flipped image
     if cfg.TEST.BBOX_AUG.H_FLIP:
         scores_hf, boxes_hf, _ = im_detect_bbox_hflip(
-            model,
-            im,
-            cfg.TEST.SCALE,
-            cfg.TEST.MAX_SIZE,
-            box_proposals=box_proposals
+            model, im, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, box_proposals=box_proposals
         )
         add_preds_t(scores_hf, boxes_hf)
 
@@ -260,34 +264,33 @@ def im_detect_bbox_aug(model, im, box_proposals=None):
     add_preds_t(scores_i, boxes_i)
 
     # Combine the predicted scores
-    if cfg.TEST.BBOX_AUG.SCORE_HEUR == 'ID':
+    if cfg.TEST.BBOX_AUG.SCORE_HEUR == "ID":
         scores_c = scores_i
-    elif cfg.TEST.BBOX_AUG.SCORE_HEUR == 'AVG':
+    elif cfg.TEST.BBOX_AUG.SCORE_HEUR == "AVG":
         scores_c = np.mean(scores_ts, axis=0)
-    elif cfg.TEST.BBOX_AUG.SCORE_HEUR == 'UNION':
+    elif cfg.TEST.BBOX_AUG.SCORE_HEUR == "UNION":
         scores_c = np.vstack(scores_ts)
     else:
         raise NotImplementedError(
-            'Score heur {} not supported'.format(cfg.TEST.BBOX_AUG.SCORE_HEUR)
+            "Score heur {} not supported".format(cfg.TEST.BBOX_AUG.SCORE_HEUR)
         )
 
     # Combine the predicted boxes
-    if cfg.TEST.BBOX_AUG.COORD_HEUR == 'ID':
+    if cfg.TEST.BBOX_AUG.COORD_HEUR == "ID":
         boxes_c = boxes_i
-    elif cfg.TEST.BBOX_AUG.COORD_HEUR == 'AVG':
+    elif cfg.TEST.BBOX_AUG.COORD_HEUR == "AVG":
         boxes_c = np.mean(boxes_ts, axis=0)
-    elif cfg.TEST.BBOX_AUG.COORD_HEUR == 'UNION':
+    elif cfg.TEST.BBOX_AUG.COORD_HEUR == "UNION":
         boxes_c = np.vstack(boxes_ts)
     else:
         raise NotImplementedError(
-            'Coord heur {} not supported'.format(cfg.TEST.BBOX_AUG.COORD_HEUR)
+            "Coord heur {} not supported".format(cfg.TEST.BBOX_AUG.COORD_HEUR)
         )
 
     return scores_c, boxes_c, im_scale_i, blob_conv_i
 
 
-def im_detect_bbox_hflip(
-        model, im, target_scale, target_max_size, box_proposals=None):
+def im_detect_bbox_hflip(model, im, target_scale, target_max_size, box_proposals=None):
     """Performs bbox detection on the horizontally flipped image.
     Function signature is the same as for im_detect_bbox.
     """
@@ -311,7 +314,8 @@ def im_detect_bbox_hflip(
 
 
 def im_detect_bbox_scale(
-        model, im, target_scale, target_max_size, box_proposals=None, hflip=False):
+    model, im, target_scale, target_max_size, box_proposals=None, hflip=False
+):
     """Computes bbox detections at the given scale.
     Returns predictions in the original image space.
     """
@@ -327,7 +331,8 @@ def im_detect_bbox_scale(
 
 
 def im_detect_bbox_aspect_ratio(
-        model, im, aspect_ratio, box_proposals=None, hflip=False):
+    model, im, aspect_ratio, box_proposals=None, hflip=False
+):
     """Computes bbox detections at the given width-relative aspect ratio.
     Returns predictions in the original image space.
     """
@@ -345,15 +350,11 @@ def im_detect_bbox_aspect_ratio(
             im_ar,
             cfg.TEST.SCALE,
             cfg.TEST.MAX_SIZE,
-            box_proposals=box_proposals_ar
+            box_proposals=box_proposals_ar,
         )
     else:
         scores_ar, boxes_ar, _, _ = im_detect_bbox(
-            model,
-            im_ar,
-            cfg.TEST.SCALE,
-            cfg.TEST.MAX_SIZE,
-            boxes=box_proposals_ar
+            model, im_ar, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, boxes=box_proposals_ar
         )
 
     # Invert the detected boxes
@@ -384,11 +385,11 @@ def im_detect_mask(model, im_scale, boxes, blob_conv):
         pred_masks = np.zeros((0, M, M), np.float32)
         return pred_masks
 
-    inputs = {'mask_rois': _get_rois_blob(boxes, im_scale)}
+    inputs = {"mask_rois": _get_rois_blob(boxes, im_scale)}
 
     # Add multi-level rois for FPN
     if cfg.FPN.MULTILEVEL_ROIS:
-        _add_multilevel_rois_for_test(inputs, 'mask_rois')
+        _add_multilevel_rois_for_test(inputs, "mask_rois")
 
     pred_masks = model.module.mask_net(blob_conv, inputs)
     pred_masks = pred_masks.data.cpu().numpy().squeeze()
@@ -414,8 +415,9 @@ def im_detect_mask_aug(model, im, boxes, im_scale, blob_conv):
     Returns:
         masks (ndarray): R x K x M x M array of class specific soft masks
     """
-    assert not cfg.TEST.MASK_AUG.SCALE_SIZE_DEP, \
-        'Size dependent scaling not implemented'
+    assert (
+        not cfg.TEST.MASK_AUG.SCALE_SIZE_DEP
+    ), "Size dependent scaling not implemented"
 
     # Collect masks computed under different transformations
     masks_ts = []
@@ -455,11 +457,11 @@ def im_detect_mask_aug(model, im, boxes, im_scale, blob_conv):
             masks_ts.append(masks_ar_hf)
 
     # Combine the predicted soft masks
-    if cfg.TEST.MASK_AUG.HEUR == 'SOFT_AVG':
+    if cfg.TEST.MASK_AUG.HEUR == "SOFT_AVG":
         masks_c = np.mean(masks_ts, axis=0)
-    elif cfg.TEST.MASK_AUG.HEUR == 'SOFT_MAX':
+    elif cfg.TEST.MASK_AUG.HEUR == "SOFT_MAX":
         masks_c = np.amax(masks_ts, axis=0)
-    elif cfg.TEST.MASK_AUG.HEUR == 'LOGIT_AVG':
+    elif cfg.TEST.MASK_AUG.HEUR == "LOGIT_AVG":
 
         def logit(y):
             return -1.0 * np.log((1.0 - y) / np.maximum(y, 1e-20))
@@ -469,7 +471,7 @@ def im_detect_mask_aug(model, im, boxes, im_scale, blob_conv):
         masks_c = 1.0 / (1.0 + np.exp(-logit_masks))
     else:
         raise NotImplementedError(
-            'Heuristic {} not supported'.format(cfg.TEST.MASK_AUG.HEUR)
+            "Heuristic {} not supported".format(cfg.TEST.MASK_AUG.HEUR)
         )
 
     return masks_c
@@ -492,15 +494,16 @@ def im_detect_mask_hflip(model, im, target_scale, target_max_size, boxes):
     return masks_inv
 
 
-def im_detect_mask_scale(
-        model, im, target_scale, target_max_size, boxes, hflip=False):
+def im_detect_mask_scale(model, im, target_scale, target_max_size, boxes, hflip=False):
     """Computes masks at the given scale."""
     if hflip:
         masks_scl = im_detect_mask_hflip(
             model, im, target_scale, target_max_size, boxes
         )
     else:
-        blob_conv, im_scale = im_conv_body_only(model, im, target_scale, target_max_size)
+        blob_conv, im_scale = im_conv_body_only(
+            model, im, target_scale, target_max_size
+        )
         masks_scl = im_detect_mask(model, im_scale, boxes, blob_conv)
     return masks_scl
 
@@ -547,11 +550,11 @@ def im_detect_keypoints(model, im_scale, boxes, blob_conv):
         pred_heatmaps = np.zeros((0, cfg.KRCNN.NUM_KEYPOINTS, M, M), np.float32)
         return pred_heatmaps
 
-    inputs = {'keypoint_rois': _get_rois_blob(boxes, im_scale)}
+    inputs = {"keypoint_rois": _get_rois_blob(boxes, im_scale)}
 
     # Add multi-level rois for FPN
     if cfg.FPN.MULTILEVEL_ROIS:
-        _add_multilevel_rois_for_test(inputs, 'keypoint_rois')
+        _add_multilevel_rois_for_test(inputs, "keypoint_rois")
 
     pred_heatmaps = model.module.keypoint_net(blob_conv, inputs)
     pred_heatmaps = pred_heatmaps.data.cpu().numpy().squeeze()
@@ -615,9 +618,7 @@ def im_detect_keypoints_aug(model, im, boxes, im_scale, blob_conv):
 
     # Compute keypoints at different aspect ratios
     for aspect_ratio in cfg.TEST.KPS_AUG.ASPECT_RATIOS:
-        heatmaps_ar = im_detect_keypoints_aspect_ratio(
-            model, im, aspect_ratio, boxes
-        )
+        heatmaps_ar = im_detect_keypoints_aspect_ratio(model, im, aspect_ratio, boxes)
         add_heatmaps_t(heatmaps_ar)
 
         if cfg.TEST.KPS_AUG.ASPECT_RATIO_H_FLIP:
@@ -627,13 +628,13 @@ def im_detect_keypoints_aug(model, im, boxes, im_scale, blob_conv):
             add_heatmaps_t(heatmaps_ar_hf)
 
     # Select the heuristic function for combining the heatmaps
-    if cfg.TEST.KPS_AUG.HEUR == 'HM_AVG':
+    if cfg.TEST.KPS_AUG.HEUR == "HM_AVG":
         np_f = np.mean
-    elif cfg.TEST.KPS_AUG.HEUR == 'HM_MAX':
+    elif cfg.TEST.KPS_AUG.HEUR == "HM_MAX":
         np_f = np.amax
     else:
         raise NotImplementedError(
-            'Heuristic {} not supported'.format(cfg.TEST.KPS_AUG.HEUR)
+            "Heuristic {} not supported".format(cfg.TEST.KPS_AUG.HEUR)
         )
 
     def heur_f(hms_ts):
@@ -641,9 +642,7 @@ def im_detect_keypoints_aug(model, im, boxes, im_scale, blob_conv):
 
     # Combine the heatmaps
     if cfg.TEST.KPS_AUG.SCALE_SIZE_DEP:
-        heatmaps_c = combine_heatmaps_size_dep(
-            heatmaps_ts, ds_ts, us_ts, boxes, heur_f
-        )
+        heatmaps_c = combine_heatmaps_size_dep(heatmaps_ts, ds_ts, us_ts, boxes, heur_f)
     else:
         heatmaps_c = heur_f(heatmaps_ts)
 
@@ -668,20 +667,22 @@ def im_detect_keypoints_hflip(model, im, target_scale, target_max_size, boxes):
 
 
 def im_detect_keypoints_scale(
-    model, im, target_scale, target_max_size, boxes, hflip=False):
+    model, im, target_scale, target_max_size, boxes, hflip=False
+):
     """Computes keypoint predictions at the given scale."""
     if hflip:
         heatmaps_scl = im_detect_keypoints_hflip(
             model, im, target_scale, target_max_size, boxes
         )
     else:
-        blob_conv, im_scale = im_conv_body_only(model, im, target_scale, target_max_size)
+        blob_conv, im_scale = im_conv_body_only(
+            model, im, target_scale, target_max_size
+        )
         heatmaps_scl = im_detect_keypoints(model, im_scale, boxes, blob_conv)
     return heatmaps_scl
 
 
-def im_detect_keypoints_aspect_ratio(
-    model, im, aspect_ratio, boxes, hflip=False):
+def im_detect_keypoints_aspect_ratio(model, im, aspect_ratio, boxes, hflip=False):
     """Detects keypoints at the given width-relative aspect ratio."""
 
     # Perform keypoint detectionon the transformed image
@@ -703,8 +704,9 @@ def im_detect_keypoints_aspect_ratio(
 
 def combine_heatmaps_size_dep(hms_ts, ds_ts, us_ts, boxes, heur_f):
     """Combines heatmaps while taking object sizes into account."""
-    assert len(hms_ts) == len(ds_ts) and len(ds_ts) == len(us_ts), \
-        'All sets of hms must be tagged with downscaling and upscaling flags'
+    assert len(hms_ts) == len(ds_ts) and len(ds_ts) == len(
+        us_ts
+    ), "All sets of hms must be tagged with downscaling and upscaling flags"
 
     # Classify objects into small+medium and large based on their box areas
     areas = box_utils.boxes_area(boxes)
@@ -750,15 +752,17 @@ def box_results_with_nms_and_limit(scores, boxes):  # NOTE: support single-batch
     for j in range(1, num_classes):
         inds = np.where(scores[:, j] > cfg.TEST.SCORE_THRESH)[0]
         scores_j = scores[inds, j]
-        boxes_j = boxes[inds, j * 4:(j + 1) * 4]
-        dets_j = np.hstack((boxes_j, scores_j[:, np.newaxis])).astype(np.float32, copy=False)
+        boxes_j = boxes[inds, j * 4 : (j + 1) * 4]
+        dets_j = np.hstack((boxes_j, scores_j[:, np.newaxis])).astype(
+            np.float32, copy=False
+        )
         if cfg.TEST.SOFT_NMS.ENABLED:
             nms_dets, _ = box_utils.soft_nms(
                 dets_j,
                 sigma=cfg.TEST.SOFT_NMS.SIGMA,
                 overlap_thresh=cfg.TEST.NMS,
                 score_thresh=0.0001,
-                method=cfg.TEST.SOFT_NMS.METHOD
+                method=cfg.TEST.SOFT_NMS.METHOD,
             )
         else:
             keep = box_utils.nms(dets_j, cfg.TEST.NMS)
@@ -769,15 +773,13 @@ def box_results_with_nms_and_limit(scores, boxes):  # NOTE: support single-batch
                 nms_dets,
                 dets_j,
                 cfg.TEST.BBOX_VOTE.VOTE_TH,
-                scoring_method=cfg.TEST.BBOX_VOTE.SCORING_METHOD
+                scoring_method=cfg.TEST.BBOX_VOTE.SCORING_METHOD,
             )
         cls_boxes[j] = nms_dets
 
     # Limit to max_per_image detections **over all classes**
     if cfg.TEST.DETECTIONS_PER_IM > 0:
-        image_scores = np.hstack(
-            [cls_boxes[j][:, -1] for j in range(1, num_classes)]
-        )
+        image_scores = np.hstack([cls_boxes[j][:, -1] for j in range(1, num_classes)])
         if len(image_scores) > cfg.TEST.DETECTIONS_PER_IM:
             image_thresh = np.sort(image_scores)[-cfg.TEST.DETECTIONS_PER_IM]
             for j in range(1, num_classes):
@@ -815,8 +817,8 @@ def segm_results(cls_boxes, masks, ref_boxes, im_h, im_w):
                 padded_mask[1:-1, 1:-1] = masks[mask_ind, 0, :, :]
 
             ref_box = ref_boxes[mask_ind, :]
-            w = (ref_box[2] - ref_box[0] + 1)
-            h = (ref_box[3] - ref_box[1] + 1)
+            w = ref_box[2] - ref_box[0] + 1
+            h = ref_box[3] - ref_box[1] + 1
             w = np.maximum(w, 1)
             h = np.maximum(h, 1)
 
@@ -830,13 +832,15 @@ def segm_results(cls_boxes, masks, ref_boxes, im_h, im_w):
             y_1 = min(ref_box[3] + 1, im_h)
 
             im_mask[y_0:y_1, x_0:x_1] = mask[
-                (y_0 - ref_box[1]):(y_1 - ref_box[1]), (x_0 - ref_box[0]):(x_1 - ref_box[0])]
+                (y_0 - ref_box[1]) : (y_1 - ref_box[1]),
+                (x_0 - ref_box[0]) : (x_1 - ref_box[0]),
+            ]
 
             # Get RLE encoding used by the COCO evaluation API
-            rle = mask_util.encode(np.array(im_mask[:, :, np.newaxis], order='F'))[0]
+            rle = mask_util.encode(np.array(im_mask[:, :, np.newaxis], order="F"))[0]
             # For dumping to json, need to decode the byte string.
             # https://github.com/cocodataset/cocoapi/issues/70
-            rle['counts'] = rle['counts'].decode('ascii')
+            rle["counts"] = rle["counts"].decode("ascii")
             segms.append(rle)
 
             mask_ind += 1
@@ -914,16 +918,15 @@ def _add_multilevel_rois_for_test(blobs, name):
     lvl_min = cfg.FPN.ROI_MIN_LEVEL
     lvl_max = cfg.FPN.ROI_MAX_LEVEL
     lvls = fpn_utils.map_rois_to_fpn_levels(blobs[name][:, 1:5], lvl_min, lvl_max)
-    fpn_utils.add_multilevel_roi_blobs(
-        blobs, name, blobs[name], lvls, lvl_min, lvl_max
-    )
+    fpn_utils.add_multilevel_roi_blobs(blobs, name, blobs[name], lvls, lvl_min, lvl_max)
 
 
 def _get_blobs(im, rois, target_scale, target_max_size):
     """Convert an image and RoIs within that image into network inputs."""
     blobs = {}
-    blobs['data'], im_scale, blobs['im_info'] = \
-        blob_utils.get_image_blob(im, target_scale, target_max_size)
+    blobs["data"], im_scale, blobs["im_info"] = blob_utils.get_image_blob(
+        im, target_scale, target_max_size
+    )
     if rois is not None:
-        blobs['rois'] = _get_rois_blob(rois, im_scale)
+        blobs["rois"] = _get_rois_blob(rois, im_scale)
     return blobs, im_scale

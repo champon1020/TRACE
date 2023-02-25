@@ -14,6 +14,7 @@ def to_tlbr(tlwh):
         ret[2:4] += ret[0:2]
     return ret
 
+
 def to_xyah(tlwh):
     if len(tlwh.shape) >= 2:
         ret = tlwh[:, :4].copy()
@@ -24,6 +25,7 @@ def to_xyah(tlwh):
         ret[0:2] += ret[2:4] / 2
         ret[2] /= ret[3]
     return ret
+
 
 class Detection(object):
     """

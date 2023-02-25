@@ -4,11 +4,10 @@ from torch.autograd import Function
 
 
 class Broadcast(Function):
-
     @staticmethod
     def forward(ctx, target_gpus, *inputs):
         if not all(input.is_cuda for input in inputs):
-            raise TypeError('Broadcast function not implemented for CPU tensors')
+            raise TypeError("Broadcast function not implemented for CPU tensors")
         ctx.target_gpus = target_gpus
         if len(inputs) == 0:
             return tuple()
@@ -25,26 +24,30 @@ class Broadcast(Function):
 
     @staticmethod
     def backward(ctx, *grad_outputs):
-        return (None,) + ReduceAddCoalesced.apply(ctx.input_device, ctx.num_inputs, *grad_outputs)
+        return (None,) + ReduceAddCoalesced.apply(
+            ctx.input_device, ctx.num_inputs, *grad_outputs
+        )
 
 
 class ReduceAddCoalesced(Function):
-
     @staticmethod
     def forward(ctx, destination, num_inputs, *grads):
-        ctx.target_gpus = [grads[i].get_device() for i in range(0, len(grads), num_inputs)]
+        ctx.target_gpus = [
+            grads[i].get_device() for i in range(0, len(grads), num_inputs)
+        ]
 
-        grads = [grads[i:i + num_inputs]
-                 for i in range(0, len(grads), num_inputs)]
+        grads = [grads[i : i + num_inputs] for i in range(0, len(grads), num_inputs)]
         return comm.reduce_add_coalesced(grads, destination)
 
     @staticmethod
     def backward(ctx, *grad_outputs):
-        return (None, None,) + Broadcast.apply(ctx.target_gpus, *grad_outputs)
+        return (
+            None,
+            None,
+        ) + Broadcast.apply(ctx.target_gpus, *grad_outputs)
 
 
 class Gather(Function):
-
     @staticmethod
     def forward(ctx, target_device, dim, *inputs):
         assert all(map(lambda i: i.is_cuda, inputs))
@@ -56,11 +59,12 @@ class Gather(Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        return (None, None) + Scatter.apply(ctx.input_gpus, ctx.input_sizes, ctx.dim, grad_output)
+        return (None, None) + Scatter.apply(
+            ctx.input_gpus, ctx.input_sizes, ctx.dim, grad_output
+        )
 
 
 class Scatter(Function):
-
     @staticmethod
     def forward(ctx, target_gpus, chunk_sizes, dim, input):
         ctx.target_gpus = target_gpus
@@ -71,7 +75,9 @@ class Scatter(Function):
         if ctx.input_device == -1:
             # Perform CPU to GPU copies in a background stream
             streams = [_get_stream(device) for device in ctx.target_gpus]
-        outputs = comm.scatter(input, ctx.target_gpus, ctx.chunk_sizes, ctx.dim, streams)
+        outputs = comm.scatter(
+            input, ctx.target_gpus, ctx.chunk_sizes, ctx.dim, streams
+        )
         # Synchronize with the copy stream
         if streams is not None:
             for i, output in enumerate(outputs):

@@ -2,9 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 # FrozenBN in detectron2
 class AffineChannel2d(nn.Module):
-    """ A simple channel-wise affine transformation operation """
+    """A simple channel-wise affine transformation operation"""
+
     def __init__(self, num_features, eps=1e-5):
         super().__init__()
         self.num_features = num_features
@@ -36,7 +38,8 @@ class AffineChannel2d(nn.Module):
                 eps=self.eps,
             )
 
-#class AffineChannel2d(nn.Module):
+
+# class AffineChannel2d(nn.Module):
 #    """ A simple channel-wise affine transformation operation """
 #    def __init__(self, num_features):
 #        super().__init__()

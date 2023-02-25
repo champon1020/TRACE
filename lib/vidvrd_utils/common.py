@@ -2,7 +2,7 @@ import numpy as np
 
 
 def voc_ap(rec, prec, use_07_metric=False):
-    """ ap = voc_ap(rec, prec, [use_07_metric])
+    """ap = voc_ap(rec, prec, [use_07_metric])
     Compute VOC AP given precision and recall.
     If use_07_metric is true, uses the
     VOC 07 11 point method (default:False).
@@ -11,18 +11,18 @@ def voc_ap(rec, prec, use_07_metric=False):
     """
     if use_07_metric:
         # 11 point metric
-        ap = 0.
-        for t in np.arange(0., 1.1, 0.1):
+        ap = 0.0
+        for t in np.arange(0.0, 1.1, 0.1):
             if np.sum(rec >= t) == 0:
                 p = 0
             else:
                 p = np.max(prec[rec >= t])
-            ap = ap + p / 11.
+            ap = ap + p / 11.0
     else:
         # correct AP calculation
         # first append sentinel values at the end
-        mrec = np.concatenate(([0.], rec, [1.]))
-        mpre = np.concatenate(([0.], prec, [0.]))
+        mrec = np.concatenate(([0.0], rec, [1.0]))
+        mpre = np.concatenate(([0.0], prec, [0.0]))
 
         # compute the precision envelope
         for i in range(mpre.size - 1, 0, -1):
@@ -51,8 +51,12 @@ def iou(bbox_1, bbox_2):
     area_1 = w_1 * h_1
     area_2 = w_2 * h_2
 
-    overlap_bbox = (max(bbox_1[0], bbox_2[0]), max(bbox_1[1], bbox_2[1]),
-                    min(bbox_1[2], bbox_2[2]), min(bbox_1[3], bbox_2[3]))
+    overlap_bbox = (
+        max(bbox_1[0], bbox_2[0]),
+        max(bbox_1[1], bbox_2[1]),
+        min(bbox_1[2], bbox_2[2]),
+        min(bbox_1[3], bbox_2[3]),
+    )
     overlap_w = max(0, (overlap_bbox[2] - overlap_bbox[0] + 1))
     overlap_h = max(0, (overlap_bbox[3] - overlap_bbox[1] + 1))
 
@@ -63,13 +67,13 @@ def iou(bbox_1, bbox_2):
 
 
 def viou(traj_1, duration_1, traj_2, duration_2):
-    """ compute the voluminal Intersection over Union
+    """compute the voluminal Intersection over Union
     for two trajectories, each of which is represented
     by a duration [fstart, fend) and a list of bounding
     boxes (i.e. traj) within the duration.
     """
     if duration_1[0] >= duration_2[1] or duration_1[1] <= duration_2[0]:
-        return 0.
+        return 0.0
     elif duration_1[0] <= duration_2[0]:
         head_1 = duration_2[0] - duration_1[0]
         head_2 = 0

@@ -5,27 +5,23 @@
 # Written by roytseng-tw
 # --------------------------------------------------------
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
-import six
+import copy
 import os
 import os.path as osp
-import copy
 from ast import literal_eval
 
+import _init_paths
+import nn as mynn
 import numpy as np
-from packaging import version
+import six
 import torch
 import torch.nn as nn
-from torch.nn import init
 import yaml
-
-import _init_paths
-
-import nn as mynn
+from packaging import version
+from torch.nn import init
 from utils.collections import AttrDict
 
 __C = AttrDict()
@@ -51,7 +47,7 @@ __C.TRAIN.DATASETS = ()
 # Each scale is the pixel size of an image's shortest side
 # If multiple scales are listed, then one is selected uniformly at random for
 # each training image (i.e., scale jitter data augmentation)
-__C.TRAIN.SCALES = (600, )
+__C.TRAIN.SCALES = (600,)
 
 # Max pixel size of the longest side of a scaled input image
 __C.TRAIN.MAX_SIZE = 1000
@@ -281,11 +277,11 @@ __C.TEST.BBOX_AUG.ENABLED = False
 
 # Heuristic used to combine predicted box scores
 #   Valid options: ('ID', 'AVG', 'UNION')
-__C.TEST.BBOX_AUG.SCORE_HEUR = 'UNION'
+__C.TEST.BBOX_AUG.SCORE_HEUR = "UNION"
 
 # Heuristic used to combine predicted box coordinates
 #   Valid options: ('ID', 'AVG', 'UNION')
-__C.TEST.BBOX_AUG.COORD_HEUR = 'UNION'
+__C.TEST.BBOX_AUG.COORD_HEUR = "UNION"
 
 # Horizontal flip at the original scale (id transform)
 __C.TEST.BBOX_AUG.H_FLIP = False
@@ -322,7 +318,7 @@ __C.TEST.MASK_AUG.ENABLED = False
 # Heuristic used to combine mask predictions
 # SOFT prefix indicates that the computation is performed on soft masks
 #   Valid options: ('SOFT_AVG', 'SOFT_MAX', 'LOGIT_AVG')
-__C.TEST.MASK_AUG.HEUR = 'SOFT_AVG'
+__C.TEST.MASK_AUG.HEUR = "SOFT_AVG"
 
 # Horizontal flip at the original scale (id transform)
 __C.TEST.MASK_AUG.H_FLIP = False
@@ -357,7 +353,7 @@ __C.TEST.KPS_AUG.ENABLED = False
 
 # Heuristic used to combine keypoint predictions
 #   Valid options: ('HM_AVG', 'HM_MAX')
-__C.TEST.KPS_AUG.HEUR = 'HM_AVG'
+__C.TEST.KPS_AUG.HEUR = "HM_AVG"
 
 # Horizontal flip at the original scale (id transform)
 __C.TEST.KPS_AUG.H_FLIP = False
@@ -389,7 +385,7 @@ __C.TEST.SOFT_NMS = AttrDict()
 # Use soft NMS instead of standard NMS if set to True
 __C.TEST.SOFT_NMS.ENABLED = False
 # See soft NMS paper for definition of these options
-__C.TEST.SOFT_NMS.METHOD = 'linear'
+__C.TEST.SOFT_NMS.METHOD = "linear"
 __C.TEST.SOFT_NMS.SIGMA = 0.5
 # For the soft NMS overlap threshold, we simply use TEST.NMS
 
@@ -407,7 +403,7 @@ __C.TEST.BBOX_VOTE.VOTE_TH = 0.8
 
 # The method used to combine scores when doing bounding box voting
 # Valid options include ('ID', 'AVG', 'IOU_AVG', 'GENERALIZED_AVG', 'QUASI_SUM')
-__C.TEST.BBOX_VOTE.SCORING_METHOD = 'ID'
+__C.TEST.BBOX_VOTE.SCORING_METHOD = "ID"
 
 # Hyperparameter used by the scoring method (it has different meanings for
 # different methods)
@@ -426,7 +422,7 @@ __C.MODEL = AttrDict()
 # The type of model to use
 # The string must match a function in the modeling.model_builder module
 # (e.g., 'generalized_rcnn', 'mask_rcnn', ...)
-__C.MODEL.TYPE = ''
+__C.MODEL.TYPE = ""
 
 __C.MODEL.SUBTYPE = 1
 
@@ -460,8 +456,8 @@ __C.MODEL.USE_BG = False
 __C.MODEL.UNFREEZE_DET = False
 
 # The backbone conv body to use
-__C.MODEL.CONV_BODY = ''
-__C.MODEL.REL_CONV_BODY = ''
+__C.MODEL.CONV_BODY = ""
+__C.MODEL.REL_CONV_BODY = ""
 
 __C.MODEL.USE_REL_PYRAMID = False
 
@@ -482,8 +478,8 @@ __C.MODEL.NODE_SAMPLE_SIZE = 128
 __C.MODEL.USE_SPO_AGNOSTIC_COMPENSATION = False
 
 # object-embed data path
-__C.MODEL.OBJ_CLASS_FILE_NAME='objects.json'
-__C.MODEL.OBJ_EMBED_FILE_NAME='obj_embed'
+__C.MODEL.OBJ_CLASS_FILE_NAME = "objects.json"
+__C.MODEL.OBJ_EMBED_FILE_NAME = "obj_embed"
 
 # Number of classes in the dataset; must be set
 # E.g., 81 for COCO (80 foreground + 1 background)
@@ -503,7 +499,7 @@ __C.MODEL.CLS_AGNOSTIC_BBOX_REG = False
 # than computing these statistics exactly, we use a fixed set of weights
 # (10., 10., 5., 5.) by default. These are approximately the weights one would
 # get from COCO using the previous unit stdev heuristic.
-__C.MODEL.BBOX_REG_WEIGHTS = (10., 10., 5., 5.)
+__C.MODEL.BBOX_REG_WEIGHTS = (10.0, 10.0, 5.0, 5.0)
 
 # The meaning of FASTER_RCNN depends on the context (training vs. inference):
 # 1) During training, FASTER_RCNN = True means that end-to-end training will be
@@ -547,10 +543,10 @@ __C.MODEL.LOAD_VRD_PRETRAINED_WEIGHTS = False
 __C.MODEL.UNSUPERVISED_POSE = False
 
 
-__C.MODEL.USE_REL_COMPETITE_LOSS_WEIGHT = -1.
-__C.MODEL.USE_TRIPLET_PENALTY_LOSS_WEIGHT = -1.
-__C.MODEL.USE_OBJ_LOSS_WEIGHT = -1.
-__C.MODEL.ALL_OBJ_WITH_REL_WEIGHT = -1.
+__C.MODEL.USE_REL_COMPETITE_LOSS_WEIGHT = -1.0
+__C.MODEL.USE_TRIPLET_PENALTY_LOSS_WEIGHT = -1.0
+__C.MODEL.USE_OBJ_LOSS_WEIGHT = -1.0
+__C.MODEL.ALL_OBJ_WITH_REL_WEIGHT = -1.0
 
 
 # ---------------------------------------------------------------------------- #
@@ -630,7 +626,7 @@ __C.RETINANET.INFERENCE_TH = 0.05
 __C.SOLVER = AttrDict()
 
 # e.g 'SGD', 'Adam'
-__C.SOLVER.TYPE = 'SGD'
+__C.SOLVER.TYPE = "SGD"
 
 # Base learning rate for the specified schedule
 __C.SOLVER.BASE_LR = 0.001
@@ -639,7 +635,7 @@ __C.SOLVER.BACKBONE_LR_SCALAR = 0.1
 
 # Schedule type (see functions in utils.lr_policy for options)
 # E.g., 'step', 'steps_with_decay', ...
-__C.SOLVER.LR_POLICY = 'step'
+__C.SOLVER.LR_POLICY = "step"
 
 # Some LR Policies (by example):
 # 'step'
@@ -693,7 +689,7 @@ __C.SOLVER.WARM_UP_ITERS = 500
 __C.SOLVER.WARM_UP_FACTOR = 1.0 / 3.0
 
 # WARM_UP_METHOD can be either 'constant' or 'linear' (i.e., gradual)
-__C.SOLVER.WARM_UP_METHOD = 'linear'
+__C.SOLVER.WARM_UP_METHOD = "linear"
 
 # Scale the momentum update history by new_lr / old_lr when updating the
 # learning rate (this is correct given MomentumSGDUpdateOp)
@@ -725,9 +721,9 @@ __C.FAST_RCNN = AttrDict()
 # The type of RoI head to use for bounding box classification and regression
 # The string must match a function this is imported in modeling.model_builder
 # (e.g., 'head_builder.add_roi_2mlp_head' to specify a two hidden layer MLP)
-__C.FAST_RCNN.ROI_BOX_HEAD = ''
+__C.FAST_RCNN.ROI_BOX_HEAD = ""
 
-__C.FAST_RCNN.PRD_HEAD = ''
+__C.FAST_RCNN.PRD_HEAD = ""
 
 # Hidden layer dimension when using an MLP for the RoI box head
 __C.FAST_RCNN.MLP_HEAD_DIM = 1024
@@ -739,7 +735,7 @@ __C.FAST_RCNN.NUM_STACKED_CONVS = 4
 
 # RoI transformation function (e.g., RoIPool or RoIAlign)
 # (RoIPoolF is the same as RoIPool; ignore the trailing 'F')
-__C.FAST_RCNN.ROI_XFORM_METHOD = 'RoIPoolF'
+__C.FAST_RCNN.ROI_XFORM_METHOD = "RoIPoolF"
 
 # Number of grid sampling points in RoIAlign (usually use 2)
 # Only applies to RoIAlign
@@ -769,7 +765,7 @@ __C.RPN.OUT_DIM = 512
 
 # 'sigmoid' or 'softmax'. Detectron use 'sigmoid'. jwyang use 'softmax'
 # This will affect the conv2d output dim for classifying the bg/fg rois
-__C.RPN.CLS_ACTIVATION = 'sigmoid'
+__C.RPN.CLS_ACTIVATION = "sigmoid"
 
 # RPN anchor sizes given in absolute pixels w.r.t. the scaled network input
 # Note: these options are *not* used by FPN RPN; see FPN.RPN* options
@@ -848,13 +844,13 @@ __C.MRCNN = AttrDict()
 # The type of RoI head to use for instance mask prediction
 # The string must match a function this is imported in modeling.model_builder
 # (e.g., 'mask_rcnn_heads.ResNet_mask_rcnn_fcn_head_v1up4convs')
-__C.MRCNN.ROI_MASK_HEAD = ''
+__C.MRCNN.ROI_MASK_HEAD = ""
 
 # Resolution of mask predictions
 __C.MRCNN.RESOLUTION = 14
 
 # RoI transformation function and associated options
-__C.MRCNN.ROI_XFORM_METHOD = 'RoIAlign'
+__C.MRCNN.ROI_XFORM_METHOD = "RoIAlign"
 
 # RoI transformation function (e.g., RoIPool or RoIAlign)
 __C.MRCNN.ROI_XFORM_RESOLUTION = 7
@@ -876,7 +872,7 @@ __C.MRCNN.UPSAMPLE_RATIO = 1
 __C.MRCNN.USE_FC_OUTPUT = False
 
 # Weight initialization method for the mask head and mask output layers. ['GaussianFill', 'MSRAFill']
-__C.MRCNN.CONV_INIT = 'GaussianFill'
+__C.MRCNN.CONV_INIT = "GaussianFill"
 
 # Use class specific mask predictions if True (otherwise use class agnostic mask
 # predictions)
@@ -899,7 +895,7 @@ __C.KRCNN = AttrDict()
 # The type of RoI head to use for instance keypoint prediction
 # The string must match a function this is imported in modeling.model_builder
 # (e.g., 'keypoint_rcnn_heads.add_roi_pose_head_v1convX')
-__C.KRCNN.ROI_KEYPOINTS_HEAD = ''
+__C.KRCNN.ROI_KEYPOINTS_HEAD = ""
 
 # Output size (and size loss is computed on), e.g., 56x56
 __C.KRCNN.HEATMAP_SIZE = -1
@@ -934,17 +930,17 @@ __C.KRCNN.CONV_HEAD_DIM = 256
 # Conv kernel size used in the keypoint head
 __C.KRCNN.CONV_HEAD_KERNEL = 3
 # Conv kernel weight filling function
-__C.KRCNN.CONV_INIT = 'GaussianFill'
+__C.KRCNN.CONV_INIT = "GaussianFill"
 
 # Use NMS based on OKS if True
 __C.KRCNN.NMS_OKS = False
 
 # Source of keypoint confidence
 #   Valid options: ('bbox', 'logit', 'prob')
-__C.KRCNN.KEYPOINT_CONFIDENCE = 'bbox'
+__C.KRCNN.KEYPOINT_CONFIDENCE = "bbox"
 
 # Standard ROI XFORM options (see FAST_RCNN or MRCNN options)
-__C.KRCNN.ROI_XFORM_METHOD = 'RoIAlign'
+__C.KRCNN.ROI_XFORM_METHOD = "RoIAlign"
 __C.KRCNN.ROI_XFORM_RESOLUTION = 7
 __C.KRCNN.ROI_XFORM_SAMPLING_RATIO = 0
 
@@ -994,11 +990,11 @@ __C.RESNETS.WIDTH_PER_GROUP = 64
 __C.RESNETS.STRIDE_1X1 = True
 
 # Residual transformation function
-__C.RESNETS.TRANS_FUNC = 'bottleneck_transformation'
+__C.RESNETS.TRANS_FUNC = "bottleneck_transformation"
 # ResNet's stem function (conv1 and pool1)
-__C.RESNETS.STEM_FUNC = 'basic_bn_stem'
+__C.RESNETS.STEM_FUNC = "basic_bn_stem"
 # ResNet's shortcut function
-__C.RESNETS.SHORTCUT_FUNC = 'basic_bn_shortcut'
+__C.RESNETS.SHORTCUT_FUNC = "basic_bn_shortcut"
 
 # Apply dilation in stage "res5"
 __C.RESNETS.RES5_DILATION = 1
@@ -1011,26 +1007,26 @@ __C.RESNETS.FREEZE_AT = 2
 # Path to pretrained resnet weights on ImageNet.
 # If start with '/', then it is treated as a absolute path.
 # Otherwise, treat as a relative path to __C.ROOT_DIR
-__C.RESNETS.IMAGENET_PRETRAINED_WEIGHTS = ''
-__C.RESNETS.COCO_PRETRAINED_WEIGHTS = ''
-__C.RESNETS.OI_PRETRAINED_WEIGHTS = ''
-__C.RESNETS.OI_REL_PRETRAINED_WEIGHTS = ''
-__C.RESNETS.OI_REL_PRD_PRETRAINED_WEIGHTS = ''
-__C.RESNETS.OI_ATT_PRETRAINED_WEIGHTS = ''
-__C.RESNETS.VRD_PRETRAINED_WEIGHTS = ''
-__C.RESNETS.VRD_PRD_PRETRAINED_WEIGHTS = ''
-__C.RESNETS.VG_PRETRAINED_WEIGHTS = ''
-__C.RESNETS.VG_PRD_PRETRAINED_WEIGHTS = ''
-__C.RESNETS.TO_BE_FINETUNED_WEIGHTS = ''
-__C.RESNETS.REL_PRETRAINED_WEIGHTS = ''
+__C.RESNETS.IMAGENET_PRETRAINED_WEIGHTS = ""
+__C.RESNETS.COCO_PRETRAINED_WEIGHTS = ""
+__C.RESNETS.OI_PRETRAINED_WEIGHTS = ""
+__C.RESNETS.OI_REL_PRETRAINED_WEIGHTS = ""
+__C.RESNETS.OI_REL_PRD_PRETRAINED_WEIGHTS = ""
+__C.RESNETS.OI_ATT_PRETRAINED_WEIGHTS = ""
+__C.RESNETS.VRD_PRETRAINED_WEIGHTS = ""
+__C.RESNETS.VRD_PRD_PRETRAINED_WEIGHTS = ""
+__C.RESNETS.VG_PRETRAINED_WEIGHTS = ""
+__C.RESNETS.VG_PRD_PRETRAINED_WEIGHTS = ""
+__C.RESNETS.TO_BE_FINETUNED_WEIGHTS = ""
+__C.RESNETS.REL_PRETRAINED_WEIGHTS = ""
 
-__C.RESNETS.PRD_2D_PRETRAINED_WEIGHTS = ''
-
-# By Ji on 05/11/2019
-__C.RESNETS.ATT_RCNN_PRETRAINED_WEIGHTS = ''
+__C.RESNETS.PRD_2D_PRETRAINED_WEIGHTS = ""
 
 # By Ji on 05/11/2019
-__C.RESNETS.REL_RCNN_PRETRAINED_WEIGHTS = ''
+__C.RESNETS.ATT_RCNN_PRETRAINED_WEIGHTS = ""
+
+# By Ji on 05/11/2019
+__C.RESNETS.REL_RCNN_PRETRAINED_WEIGHTS = ""
 
 # Use GroupNorm instead of BatchNorm
 __C.RESNETS.USE_GN = False
@@ -1038,16 +1034,16 @@ __C.RESNETS.USE_GN = False
 
 __C.VGG16 = AttrDict()
 
-__C.VGG16.IMAGENET_PRETRAINED_WEIGHTS = ''
-__C.VGG16.COCO_PRETRAINED_WEIGHTS = ''
-__C.VGG16.OI_PRETRAINED_WEIGHTS = ''
-__C.VGG16.OI_REL_PRETRAINED_WEIGHTS = ''
-__C.VGG16.OI_REL_PRD_PRETRAINED_WEIGHTS = ''
-__C.VGG16.VRD_PRETRAINED_WEIGHTS = ''
-__C.VGG16.VRD_PRD_PRETRAINED_WEIGHTS = ''
-__C.VGG16.VG_PRETRAINED_WEIGHTS = ''
-__C.VGG16.VG_PRD_PRETRAINED_WEIGHTS = ''
-__C.VGG16.TO_BE_FINETUNED_WEIGHTS = ''
+__C.VGG16.IMAGENET_PRETRAINED_WEIGHTS = ""
+__C.VGG16.COCO_PRETRAINED_WEIGHTS = ""
+__C.VGG16.OI_PRETRAINED_WEIGHTS = ""
+__C.VGG16.OI_REL_PRETRAINED_WEIGHTS = ""
+__C.VGG16.OI_REL_PRD_PRETRAINED_WEIGHTS = ""
+__C.VGG16.VRD_PRETRAINED_WEIGHTS = ""
+__C.VGG16.VRD_PRD_PRETRAINED_WEIGHTS = ""
+__C.VGG16.VG_PRETRAINED_WEIGHTS = ""
+__C.VGG16.VG_PRD_PRETRAINED_WEIGHTS = ""
+__C.VGG16.TO_BE_FINETUNED_WEIGHTS = ""
 
 # ---------------------------------------------------------------------------- #
 # GroupNorm options
@@ -1073,12 +1069,12 @@ __C.NUM_GPUS = 1
 # coordinates. If DEDUP_BOXES > 0, then DEDUP_BOXES is used as the scale factor
 # for identifying duplicate boxes.
 # 1/16 is correct for {Alex,Caffe}Net, VGG_CNN_M_1024, and VGG16
-__C.DEDUP_BOXES = 1. / 16.
+__C.DEDUP_BOXES = 1.0 / 16.0
 
 # Clip bounding box transformation predictions to prevent np.exp from
 # overflowing
 # Heuristic choice based on that would scale a 16 pixel anchor up to 1000 pixels
-__C.BBOX_XFORM_CLIP = np.log(1000. / 16.)
+__C.BBOX_XFORM_CLIP = np.log(1000.0 / 16.0)
 
 # Pixel mean values (BGR order) as a (1, 1, 3) array
 # We use the same pixel mean for all networks even though it's not exactly what
@@ -1093,13 +1089,13 @@ __C.RNG_SEED = 3
 __C.EPS = 1e-14
 
 # Root directory of project
-__C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
+__C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), "..", ".."))
 
 # Output basedir
-__C.OUTPUT_DIR = 'Outputs'
+__C.OUTPUT_DIR = "Outputs"
 
 # Name (or path to) the matlab executable
-__C.MATLAB = 'matlab'
+__C.MATLAB = "matlab"
 
 # Dump detection visualizations
 __C.VIS = False
@@ -1115,14 +1111,14 @@ __C.EXPECTED_RESULTS = []
 __C.EXPECTED_RESULTS_RTOL = 0.1
 __C.EXPECTED_RESULTS_ATOL = 0.005
 # Set to send email in case of an EXPECTED_RESULTS failure
-__C.EXPECTED_RESULTS_EMAIL = ''
+__C.EXPECTED_RESULTS_EMAIL = ""
 
 # ------------------------------
 # Data directory
-__C.DATA_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'data'))
+__C.DATA_DIR = osp.abspath(osp.join(__C.ROOT_DIR, "data"))
 
 # [Deprecate]
-__C.POOLING_MODE = 'crop'
+__C.POOLING_MODE = "crop"
 
 # [Deprecate] Size of the pooled region after RoI pooling
 __C.POOLING_SIZE = 7
@@ -1145,9 +1141,9 @@ __C.HALF_NUMBER_OF_FRAMES = 3
 __C.FRAMES_INTERVAL = 3
 __C.ENABLE_FRAME_SAMPLE = False
 __C.ENABLE_FRAME_PRE_PROCESSING = False
-__C.FRAME_PRE_PROCESSING_SAVED_PATH = ''
+__C.FRAME_PRE_PROCESSING_SAVED_PATH = ""
 __C.TEST.GET_FRAME_ROIS = False
-__C.FRAME_PRE_PROCESSING_PATH = ''
+__C.FRAME_PRE_PROCESSING_PATH = ""
 __C.MAX_FRAMES_NUM_IN_MEMORY = 2 * 3 + 1
 __C.TEMPORAL_SCALES = 600
 
@@ -1172,7 +1168,7 @@ __C.CLUSTER_NUM_PARTITION = 2.0
 __C.USE_MOTION_SQUEEZE = False
 __C.I3D_DC5 = False
 __C.NO_TEMPORAL_FUSION = False
-__C.HALF_FRAME_RELATIVE_PATH = 'sampled_frames'
+__C.HALF_FRAME_RELATIVE_PATH = "sampled_frames"
 
 __C.USE_PRD_BOXES = False
 
@@ -1182,7 +1178,7 @@ __C.USE_PRD_BOXES = False
 # ---------------------------------------------------------------------------- #
 _SHARE_RES5_HEADS = set(
     [
-        'mask_rcnn_heads.mask_rcnn_fcn_head_v0upshare',
+        "mask_rcnn_heads.mask_rcnn_fcn_head_v0upshare",
     ]
 )
 
@@ -1200,11 +1196,13 @@ def assert_and_infer_cfg(make_immutable=True):
     if __C.RPN.RPN_ON or __C.RETINANET.RETINANET_ON:
         __C.TEST.PRECOMPUTED_PROPOSALS = False
     if __C.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS:
-        assert __C.RESNETS.IMAGENET_PRETRAINED_WEIGHTS or __C.VGG16.IMAGENET_PRETRAINED_WEIGHTS, \
-            "Path to the weight file must not be empty to load imagenet pertrained resnets."
+        assert (
+            __C.RESNETS.IMAGENET_PRETRAINED_WEIGHTS
+            or __C.VGG16.IMAGENET_PRETRAINED_WEIGHTS
+        ), "Path to the weight file must not be empty to load imagenet pertrained resnets."
     if set([__C.MRCNN.ROI_MASK_HEAD, __C.KRCNN.ROI_KEYPOINTS_HEAD]) & _SHARE_RES5_HEADS:
         __C.MODEL.SHARE_RES5 = True
-    if version.parse(torch.__version__) < version.parse('0.4.0'):
+    if version.parse(torch.__version__) < version.parse("0.4.0"):
         __C.PYTORCH_VERSION_LESS_THAN_040 = True
         # create alias for PyTorch version less than 0.4.0
         init.uniform_ = init.uniform
@@ -1217,10 +1215,10 @@ def assert_and_infer_cfg(make_immutable=True):
 
 def merge_cfg_from_file(cfg_filename):
     """Load a yaml config file and merge it into the global config."""
-    with open(cfg_filename, 'r') as f:
+    with open(cfg_filename, "r") as f:
         yaml_load = lambda x: yaml.load(x, Loader=yaml.Loader)
         yaml_cfg = AttrDict(yaml_load(f))
-#         yaml_cfg = AttrDict(yaml.load(f))        
+    #         yaml_cfg = AttrDict(yaml.load(f))
     _merge_a_into_b(yaml_cfg, __C)
 
 
@@ -1242,18 +1240,17 @@ def merge_cfg_from_list(cfg_list):
         #     continue
         # if _key_is_renamed(full_key):
         #     _raise_key_rename_error(full_key)
-        key_list = full_key.split('.')
+        key_list = full_key.split(".")
         d = __C
         for subkey in key_list[:-1]:
-            assert subkey in d, 'Non-existent key: {}'.format(full_key)
+            assert subkey in d, "Non-existent key: {}".format(full_key)
             d = d[subkey]
         subkey = key_list[-1]
-        assert subkey in d, 'Non-existent key: {}'.format(full_key)
+        assert subkey in d, "Non-existent key: {}".format(full_key)
         value = _decode_cfg_value(v)
-        value = _check_and_coerce_cfg_value_type(
-            value, d[subkey], subkey, full_key
-        )
+        value = _check_and_coerce_cfg_value_type(value, d[subkey], subkey, full_key)
         d[subkey] = value
+
 
 cfg_from_list = merge_cfg_from_list
 
@@ -1262,11 +1259,11 @@ def _merge_a_into_b(a, b, stack=None):
     """Merge config dictionary a into config dictionary b, clobbering the
     options in b whenever they are also specified in a.
     """
-    assert isinstance(a, AttrDict), 'Argument `a` must be an AttrDict'
-    assert isinstance(b, AttrDict), 'Argument `b` must be an AttrDict'
+    assert isinstance(a, AttrDict), "Argument `a` must be an AttrDict"
+    assert isinstance(b, AttrDict), "Argument `b` must be an AttrDict"
 
     for k, v_ in a.items():
-        full_key = '.'.join(stack) + '.' + k if stack is not None else k
+        full_key = ".".join(stack) + "." + k if stack is not None else k
         # a must specify keys that are in b
         if k not in b:
             # if _key_is_deprecated(full_key):
@@ -1274,12 +1271,12 @@ def _merge_a_into_b(a, b, stack=None):
             # elif _key_is_renamed(full_key):
             #     _raise_key_rename_error(full_key)
             # else:
-            raise KeyError('Non-existent config key: {}'.format(full_key))
+            raise KeyError("Non-existent config key: {}".format(full_key))
 
         v = copy.deepcopy(v_)
         v = _decode_cfg_value(v)
         v = _check_and_coerce_cfg_value_type(v, b[k], k, full_key)
-        
+
         # Recursively merge dicts
         if isinstance(v, AttrDict):
             try:
@@ -1346,7 +1343,7 @@ def _check_and_coerce_cfg_value_type(value_a, value_b, key, full_key):
         value_a = tuple(value_a)
     else:
         raise ValueError(
-            'Type mismatch ({} vs. {}) with values ({} vs. {}) for config '
-            'key: {}'.format(type_b, type_a, value_b, value_a, full_key)
+            "Type mismatch ({} vs. {}) with values ({} vs. {}) for config "
+            "key: {}".format(type_b, type_a, value_b, value_a, full_key)
         )
     return value_a

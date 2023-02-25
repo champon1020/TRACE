@@ -16,19 +16,17 @@
 """Common utility functions for RPN and RetinaNet minibtach blobs preparation.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
-from collections import namedtuple
 import logging
-import numpy as np
 import threading
+from collections import namedtuple
 
+import numpy as np
+import utils.boxes as box_utils
 from core.config import cfg
 from modeling.generate_anchors import generate_anchors
-import utils.boxes as box_utils
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +35,15 @@ logger = logging.getLogger(__name__)
 # scale of the anchor and aspect denotes which aspect ratio is used in the range
 # of aspect ratios
 FieldOfAnchors = namedtuple(
-    'FieldOfAnchors', [
-        'field_of_anchors', 'num_cell_anchors', 'stride', 'field_size',
-        'octave', 'aspect'
-    ]
+    "FieldOfAnchors",
+    [
+        "field_of_anchors",
+        "num_cell_anchors",
+        "stride",
+        "field_size",
+        "octave",
+        "aspect",
+    ],
 )
 
 # Cache for memoizing _get_field_of_anchors
@@ -51,7 +54,7 @@ def get_field_of_anchors(
     stride, anchor_sizes, anchor_aspect_ratios, octave=None, aspect=None
 ):
     global _threadlocal_foa
-    if not hasattr(_threadlocal_foa, 'cache'):
+    if not hasattr(_threadlocal_foa, "cache"):
         _threadlocal_foa.cache = {}
 
     cache_key = str(stride) + str(anchor_sizes) + str(anchor_aspect_ratios)
@@ -84,10 +87,9 @@ def get_field_of_anchors(
     #   - reshape to (K*A, 4) shifted anchors
     A = num_cell_anchors
     K = shifts.shape[0]
-    field_of_anchors = (
-        cell_anchors.reshape((1, A, 4)) +
-        shifts.reshape((1, K, 4)).transpose((1, 0, 2))
-    )
+    field_of_anchors = cell_anchors.reshape((1, A, 4)) + shifts.reshape(
+        (1, K, 4)
+    ).transpose((1, 0, 2))
     field_of_anchors = field_of_anchors.reshape((K * A, 4))
     foa = FieldOfAnchors(
         field_of_anchors=field_of_anchors.astype(np.float32),
@@ -95,7 +97,7 @@ def get_field_of_anchors(
         stride=stride,
         field_size=field_size,
         octave=octave,
-        aspect=aspect
+        aspect=aspect,
     )
     _threadlocal_foa.cache[cache_key] = foa
     return foa
@@ -108,11 +110,11 @@ def unmap(data, count, inds, fill=0):
         return data
 
     if len(data.shape) == 1:
-        ret = np.empty((count, ), dtype=data.dtype)
+        ret = np.empty((count,), dtype=data.dtype)
         ret.fill(fill)
         ret[inds] = data
     else:
-        ret = np.empty((count, ) + data.shape[1:], dtype=data.dtype)
+        ret = np.empty((count,) + data.shape[1:], dtype=data.dtype)
         ret.fill(fill)
         ret[inds, :] = data
     return ret

@@ -21,4 +21,4 @@ def get_root_logger(log_file=None, log_level=logging.INFO):
     Returns:
         :obj:`logging.Logger`: The root logger.
     """
-    return get_logger(__name__.split('.')[0], log_file, log_level)
+    return get_logger(__name__.split(".")[0], log_file, log_level)

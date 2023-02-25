@@ -1,4 +1,3 @@
-
 # This file is from https://github.com/rowanz/neural-motifs/blob/master/lib/pytorch_misc.py
 # Unused imports and functions are deleted
 
@@ -24,6 +23,7 @@ def intersect_2d(x1, x2):
     # Instead of summing, we want the equality, so we reduce in that way
     res = (x1[..., None] == x2.T[None, ...]).all(1)
     return res
+
 
 def argsort_desc(scores):
     """

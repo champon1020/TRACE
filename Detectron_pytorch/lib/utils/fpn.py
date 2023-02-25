@@ -1,12 +1,11 @@
 import numpy as np
-
 import utils.boxes as box_utils
 from core.config import cfg
-
 
 # ---------------------------------------------------------------------------- #
 # Helper functions for working with multilevel FPN RoIs
 # ---------------------------------------------------------------------------- #
+
 
 def map_rois_to_fpn_levels(rois, k_min, k_max):
     """Determine which FPN level each RoI in a set of RoIs should map to based
@@ -28,9 +27,7 @@ def map_rois_to_fpn_levels(rois, k_min, k_max):
     return target_lvls
 
 
-def add_multilevel_roi_blobs(
-        blobs, blob_prefix, rois, target_lvls, lvl_min, lvl_max
-    ):
+def add_multilevel_roi_blobs(blobs, blob_prefix, rois, target_lvls, lvl_min, lvl_max):
     """Add RoI blobs for multiple FPN levels to the blobs dict.
 
     blobs: a dict mapping from blob name to numpy ndarray
@@ -42,27 +39,25 @@ def add_multilevel_roi_blobs(
     lvl_min: the finest (highest resolution) FPN level (e.g., 2)
     lvl_max: the coarest (lowest resolution) FPN level (e.g., 6)
     """
-    rois_idx_order = np.empty((0, ))
+    rois_idx_order = np.empty((0,))
     rois_stacked = np.zeros((0, 5), dtype=np.float32)  # for assert
     # target_lvls = remove_negative_area_roi_blobs(blobs, blob_prefix, rois, target_lvls)
     for lvl in range(lvl_min, lvl_max + 1):
         idx_lvl = np.where(target_lvls == lvl)[0]
-        blobs[blob_prefix + '_fpn' + str(lvl)] = rois[idx_lvl, :]
+        blobs[blob_prefix + "_fpn" + str(lvl)] = rois[idx_lvl, :]
         rois_idx_order = np.concatenate((rois_idx_order, idx_lvl))
-        rois_stacked = np.vstack(
-            [rois_stacked, blobs[blob_prefix + '_fpn' + str(lvl)]]
-        )
+        rois_stacked = np.vstack([rois_stacked, blobs[blob_prefix + "_fpn" + str(lvl)]])
     rois_idx_restore = np.argsort(rois_idx_order).astype(np.int32, copy=False)
-    blobs[blob_prefix + '_idx_restore_int32'] = rois_idx_restore
+    blobs[blob_prefix + "_idx_restore_int32"] = rois_idx_restore
     # Sanity check that restore order is correct
     assert (rois_stacked[rois_idx_restore] == rois).all()
 
 
 def remove_negative_area_roi_blobs(blobs, blob_prefix, rois, target_lvls):
-    """ Delete roi entries that have negative area (Uncompleted) """
+    """Delete roi entries that have negative area (Uncompleted)"""
     idx_neg = np.where(target_lvls == -1)[0]
     rois = np.delete(rois, idx_neg, axis=0)
     blobs[blob_prefix] = rois
     target_lvls = np.delete(target_lvls, idx_neg, axis=0)
-    #TODO: other blobs in faster_rcnn.get_fast_rcnn_blob_names should also be modified
+    # TODO: other blobs in faster_rcnn.get_fast_rcnn_blob_names should also be modified
     return target_lvls

@@ -1,10 +1,9 @@
 import logging
+
 import numpy as np
-
-from torch import nn
-
-from core.config import cfg
 import utils.boxes as box_utils
+from core.config import cfg
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +13,7 @@ class GenerateProposalsOp(nn.Module):
         super().__init__()
         self._anchors = anchors
         self._num_anchors = self._anchors.shape[0]
-        self._feat_stride = 1. / spatial_scale
+        self._feat_stride = 1.0 / spatial_scale
 
     def forward(self, rpn_cls_prob, rpn_bbox_pred, im_info, is_roidb_none):
         """Op for generating RPN porposals.
@@ -52,7 +51,7 @@ class GenerateProposalsOp(nn.Module):
         # 6. apply NMS with a loose threshold (0.7) to the remaining proposals
         # 7. take after_nms_topN proposals after NMS
         # 8. return the top proposals
-        
+
         """Type conversion"""
         # predicted probability of fg object for each RPN anchor
         scores = rpn_cls_prob.data.cpu().numpy()
@@ -70,8 +69,9 @@ class GenerateProposalsOp(nn.Module):
         shift_x, shift_y = np.meshgrid(shift_x, shift_y, copy=False)
         # Convert to (K, 4), K=H*W, where the columns are (dx, dy, dx, dy)
         # shift pointing to each grid location
-        shifts = np.vstack((shift_x.ravel(), shift_y.ravel(), shift_x.ravel(),
-                            shift_y.ravel())).transpose()
+        shifts = np.vstack(
+            (shift_x.ravel(), shift_y.ravel(), shift_x.ravel(), shift_y.ravel())
+        ).transpose()
 
         # Broacast anchors over shifts to enumerate all anchors at all positions
         # in the (H, W) grid:
@@ -90,22 +90,27 @@ class GenerateProposalsOp(nn.Module):
         roi_probs = np.empty((0, 1), dtype=np.float32)
         for im_i in range(num_images):
             im_i_boxes, im_i_probs = self.proposals_for_one_image(
-                im_info[im_i, :], all_anchors, bbox_deltas[im_i, :, :, :],
-                scores[im_i, :, :, :], is_roidb_none)
-            batch_inds = im_i * np.ones(
-                (im_i_boxes.shape[0], 1), dtype=np.float32)
+                im_info[im_i, :],
+                all_anchors,
+                bbox_deltas[im_i, :, :, :],
+                scores[im_i, :, :, :],
+                is_roidb_none,
+            )
+            batch_inds = im_i * np.ones((im_i_boxes.shape[0], 1), dtype=np.float32)
             im_i_rois = np.hstack((batch_inds, im_i_boxes))
             rois = np.append(rois, im_i_rois, axis=0)
             roi_probs = np.append(roi_probs, im_i_probs, axis=0)
 
         return rois, roi_probs  # Note: ndarrays
 
-    def proposals_for_one_image(self, im_info, all_anchors, bbox_deltas, scores, is_roidb_none):
+    def proposals_for_one_image(
+        self, im_info, all_anchors, bbox_deltas, scores, is_roidb_none
+    ):
         # Get mode-dependent configuration
-        cfg_key = 'TRAIN' if self.training else 'TEST'
-        
-        cfg_key = 'TEST' if (is_roidb_none or (not self.training)) else 'TRAIN' ###!!!
-        
+        cfg_key = "TRAIN" if self.training else "TEST"
+
+        cfg_key = "TEST" if (is_roidb_none or (not self.training)) else "TRAIN"  ###!!!
+
         pre_nms_topN = cfg[cfg_key].RPN_PRE_NMS_TOP_N
         post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N
         nms_thresh = cfg[cfg_key].RPN_NMS_THRESH
@@ -135,8 +140,7 @@ class GenerateProposalsOp(nn.Module):
         else:
             # Avoid sorting possibly large arrays; First partition to get top K
             # unsorted and then sort just those (~20x faster for 200k scores)
-            inds = np.argpartition(-scores.squeeze(),
-                                   pre_nms_topN)[:pre_nms_topN]
+            inds = np.argpartition(-scores.squeeze(), pre_nms_topN)[:pre_nms_topN]
             order = np.argsort(-scores[inds].squeeze())
             order = inds[order]
         bbox_deltas = bbox_deltas[order, :]
@@ -144,8 +148,9 @@ class GenerateProposalsOp(nn.Module):
         scores = scores[order]
 
         # Transform anchors into proposals via bbox transformations
-        proposals = box_utils.bbox_transform(all_anchors, bbox_deltas,
-                                             (1.0, 1.0, 1.0, 1.0))
+        proposals = box_utils.bbox_transform(
+            all_anchors, bbox_deltas, (1.0, 1.0, 1.0, 1.0)
+        )
 
         # 2. clip proposals to image (may result in proposals with zero area
         # that will be removed in the next step)
@@ -170,34 +175,39 @@ class GenerateProposalsOp(nn.Module):
         # print('final proposals:', proposals.shape, scores.shape)
         return proposals, scores
 
+
 def _filter_boxes(boxes, min_size, im_info):
-    """Only keep boxes with both sides >= min_size and center within the image.
-  """
+    """Only keep boxes with both sides >= min_size and center within the image."""
     # Scale min_size to match image scale
     min_size *= im_info[2]
-    
+
     # Compute the width and height of the proposal boxes as measured in the original
     # image coordinate system (this is required to avoid "Negative Areas Found"
     # assertions in other parts of the code that measure).
     # To avoid numerical issues we require the min_size to be at least 1 pixel in the
     # original image
     # Proposal center is computed relative to the scaled input image
-    
+
     ws = boxes[:, 2] - boxes[:, 0] + 1
     hs = boxes[:, 3] - boxes[:, 1] + 1
-    x_ctr = boxes[:, 0] + ws / 2.
-    y_ctr = boxes[:, 1] + hs / 2.
-    keep = np.where((ws >= min_size) & (hs >= min_size) &
-                    (x_ctr < im_info[1]) & (y_ctr < im_info[0]))[0]
-    
+    x_ctr = boxes[:, 0] + ws / 2.0
+    y_ctr = boxes[:, 1] + hs / 2.0
+    keep = np.where(
+        (ws >= min_size)
+        & (hs >= min_size)
+        & (x_ctr < im_info[1])
+        & (y_ctr < im_info[0])
+    )[0]
+
     return keep
-        
-#def _filter_boxes(boxes, min_size, im_info):
+
+
+# def _filter_boxes(boxes, min_size, im_info):
 #    """Only keep boxes with both sides >= min_size and center within the image.
 #  """
 #    # Scale min_size to match image scale
 #    ###!!!min_size *= im_info[2]
-#    
+#
 #    # Compute the width and height of the proposal boxes as measured in the original
 #    # image coordinate system (this is required to avoid "Negative Areas Found"
 #    # assertions in other parts of the code that measure).
@@ -208,14 +218,14 @@ def _filter_boxes(boxes, min_size, im_info):
 #    # original image
 #    min_size = np.maximum(min_size, 1)
 #    # Proposal center is computed relative to the scaled input image
-#    
+#
 #    ws = boxes[:, 2] - boxes[:, 0] + 1
 #    hs = boxes[:, 3] - boxes[:, 1] + 1
 #    x_ctr = boxes[:, 0] + ws / 2.
 #    y_ctr = boxes[:, 1] + hs / 2.
 #    ###!!!keep = np.where((ws >= min_size) & (hs >= min_size) &
 #    ###!!!                (x_ctr < im_info[1]) & (y_ctr < im_info[0]))[0]
-#    
+#
 #    keep = np.where(
 #        (ws_orig_scale >= min_size)
 #        & (hs_orig_scale >= min_size)

@@ -17,20 +17,17 @@
 
 """Utilities for training."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
-from collections import defaultdict, OrderedDict
 import datetime
-import numpy as np
+from collections import OrderedDict, defaultdict
 
-from core.config import cfg
-from utils.logging import log_stats
-from utils.logging import SmoothedValue
-from utils.timer import Timer
+import numpy as np
 import utils.net as nu
+from core.config import cfg
+from utils.logging import SmoothedValue, log_stats
+from utils.timer import Timer
 
 
 class TrainingStats(object):
@@ -41,12 +38,14 @@ class TrainingStats(object):
         self.misc_args = misc_args
         self.LOG_PERIOD = log_period
         self.tblogger = tensorboard_logger
-        self.tb_ignored_keys = ['iter', 'eta']
+        self.tb_ignored_keys = ["iter", "eta"]
         self.iter_timer = Timer()
         # Window size for smoothing tracked values (with median filtering)
         self.WIN_SZ = 20
+
         def create_smoothed_value():
             return SmoothedValue(self.WIN_SZ)
+
         self.smoothed_losses = defaultdict(create_smoothed_value)
         self.smoothed_metrics = defaultdict(create_smoothed_value)
         self.smoothed_total_loss = SmoothedValue(self.WIN_SZ)
@@ -79,26 +78,26 @@ class TrainingStats(object):
             loss_rpn_cls_data = 0
             loss_rpn_bbox_data = 0
 
-        for k, loss in model_out['losses'].items():
+        for k, loss in model_out["losses"].items():
             assert loss.shape[0] == cfg.NUM_GPUS
             loss = loss.mean(dim=0, keepdim=True)
             total_loss += loss
             loss_data = loss.item()
-            model_out['losses'][k] = loss
+            model_out["losses"][k] = loss
             if cfg.FPN.FPN_ON:
-                if k.startswith('loss_rpn_cls_'):
+                if k.startswith("loss_rpn_cls_"):
                     loss_rpn_cls_data += loss_data
-                elif k.startswith('loss_rpn_bbox_'):
+                elif k.startswith("loss_rpn_bbox_"):
                     loss_rpn_bbox_data += loss_data
             self.smoothed_losses[k].AddValue(loss_data)
 
-        model_out['total_loss'] = total_loss  # Add the total loss for back propagation
+        model_out["total_loss"] = total_loss  # Add the total loss for back propagation
         self.smoothed_total_loss.AddValue(total_loss.item())
         if cfg.FPN.FPN_ON:
-            self.smoothed_losses['loss_rpn_cls'].AddValue(loss_rpn_cls_data)
-            self.smoothed_losses['loss_rpn_bbox'].AddValue(loss_rpn_bbox_data)
+            self.smoothed_losses["loss_rpn_cls"].AddValue(loss_rpn_cls_data)
+            self.smoothed_losses["loss_rpn_bbox"].AddValue(loss_rpn_bbox_data)
 
-        for k, metric in model_out['metrics'].items():
+        for k, metric in model_out["metrics"].items():
             metric = metric.mean(dim=0, keepdim=True)
             self.smoothed_metrics[k].AddValue(metric.item())
 
@@ -113,53 +112,57 @@ class TrainingStats(object):
 
         if inner_iter == 0:
             self.inner_total_loss = []
-            for k in model_out['losses']:
+            for k in model_out["losses"]:
                 self.inner_losses[k] = []
             if cfg.FPN.FPN_ON:
                 self.inner_loss_rpn_cls = []
                 self.inner_loss_rpn_bbox = []
-            for k in model_out['metrics']:
+            for k in model_out["metrics"]:
                 self.inner_metrics[k] = []
 
-        for k, loss in model_out['losses'].items():
+        for k, loss in model_out["losses"].items():
             assert loss.shape[0] == cfg.NUM_GPUS
             loss = loss.mean(dim=0, keepdim=True)
             total_loss += loss
             loss_data = loss.item()
 
-            model_out['losses'][k] = loss
+            model_out["losses"][k] = loss
             if cfg.FPN.FPN_ON:
-                if k.startswith('loss_rpn_cls_'):
+                if k.startswith("loss_rpn_cls_"):
                     loss_rpn_cls_data += loss_data
-                elif k.startswith('loss_rpn_bbox_'):
+                elif k.startswith("loss_rpn_bbox_"):
                     loss_rpn_bbox_data += loss_data
 
             self.inner_losses[k].append(loss_data)
             if inner_iter == (self.misc_args.iter_size - 1):
-                loss_data = self._mean_and_reset_inner_list('inner_losses', k)
+                loss_data = self._mean_and_reset_inner_list("inner_losses", k)
                 self.smoothed_losses[k].AddValue(loss_data)
 
-        model_out['total_loss'] = total_loss  # Add the total loss for back propagation
+        model_out["total_loss"] = total_loss  # Add the total loss for back propagation
         total_loss_data = total_loss.data[0]
         self.inner_total_loss.append(total_loss_data)
         if cfg.FPN.FPN_ON:
             self.inner_loss_rpn_cls.append(loss_rpn_cls_data)
             self.inner_loss_rpn_bbox.append(loss_rpn_bbox_data)
         if inner_iter == (self.misc_args.iter_size - 1):
-            total_loss_data = self._mean_and_reset_inner_list('inner_total_loss')
+            total_loss_data = self._mean_and_reset_inner_list("inner_total_loss")
             self.smoothed_total_loss.AddValue(total_loss_data)
             if cfg.FPN.FPN_ON:
-                loss_rpn_cls_data = self._mean_and_reset_inner_list('inner_loss_rpn_cls')
-                loss_rpn_bbox_data = self._mean_and_reset_inner_list('inner_loss_rpn_bbox')
-                self.smoothed_losses['loss_rpn_cls'].AddValue(loss_rpn_cls_data)
-                self.smoothed_losses['loss_rpn_bbox'].AddValue(loss_rpn_bbox_data)
+                loss_rpn_cls_data = self._mean_and_reset_inner_list(
+                    "inner_loss_rpn_cls"
+                )
+                loss_rpn_bbox_data = self._mean_and_reset_inner_list(
+                    "inner_loss_rpn_bbox"
+                )
+                self.smoothed_losses["loss_rpn_cls"].AddValue(loss_rpn_cls_data)
+                self.smoothed_losses["loss_rpn_bbox"].AddValue(loss_rpn_bbox_data)
 
-        for k, metric in model_out['metrics'].items():
+        for k, metric in model_out["metrics"].items():
             metric = metric.mean(dim=0, keepdim=True)
             metric_data = metric.data[0]
             self.inner_metrics[k].append(metric_data)
             if inner_iter == (self.misc_args.iter_size - 1):
-                metric_data = self._mean_and_reset_inner_list('inner_metrics', k)
+                metric_data = self._mean_and_reset_inner_list("inner_metrics", k)
                 self.smoothed_metrics[k].AddValue(metric_data)
 
     def _mean_and_reset_inner_list(self, attr_name, key=None):
@@ -174,8 +177,7 @@ class TrainingStats(object):
 
     def LogIterStats(self, cur_iter, lr):
         """Log the tracked statistics."""
-        if (cur_iter % self.LOG_PERIOD == 0 or
-                cur_iter == cfg.SOLVER.MAX_ITER - 1):
+        if cur_iter % self.LOG_PERIOD == 0 or cur_iter == cfg.SOLVER.MAX_ITER - 1:
             stats = self.GetStats(cur_iter, lr)
             log_stats(stats, self.misc_args)
             if self.tblogger:
@@ -192,9 +194,7 @@ class TrainingStats(object):
                     self.tblogger.add_scalar(k, v, cur_iter)
 
     def GetStats(self, cur_iter, lr):
-        eta_seconds = self.iter_timer.average_time * (
-            cfg.SOLVER.MAX_ITER - cur_iter
-        )
+        eta_seconds = self.iter_timer.average_time * (cfg.SOLVER.MAX_ITER - cur_iter)
         eta = str(datetime.timedelta(seconds=int(eta_seconds)))
         stats = OrderedDict(
             iter=cur_iter + 1,  # 1-indexed
@@ -203,29 +203,29 @@ class TrainingStats(object):
             loss=self.smoothed_total_loss.GetMedianValue(),
             lr=lr,
         )
-        stats['metrics'] = OrderedDict()
+        stats["metrics"] = OrderedDict()
         for k in sorted(self.smoothed_metrics):
-            stats['metrics'][k] = self.smoothed_metrics[k].GetMedianValue()
+            stats["metrics"][k] = self.smoothed_metrics[k].GetMedianValue()
 
         head_losses = []
         rpn_losses = []
         rpn_fpn_cls_losses = []
         rpn_fpn_bbox_losses = []
         for k, v in self.smoothed_losses.items():
-            toks = k.split('_')
+            toks = k.split("_")
             if len(toks) == 2:
                 head_losses.append((k, v.GetMedianValue()))
             elif len(toks) == 3:
                 rpn_losses.append((k, v.GetMedianValue()))
-            elif len(toks) == 4 and toks[2] == 'cls':
+            elif len(toks) == 4 and toks[2] == "cls":
                 rpn_fpn_cls_losses.append((k, v.GetMedianValue()))
-            elif len(toks) == 4 and toks[2] == 'bbox':
+            elif len(toks) == 4 and toks[2] == "bbox":
                 rpn_fpn_bbox_losses.append((k, v.GetMedianValue()))
             else:
                 raise ValueError("Unexpected loss key: %s" % k)
-        stats['head_losses'] = OrderedDict(head_losses)
-        stats['rpn_losses'] = OrderedDict(rpn_losses)
-        stats['rpn_fpn_cls_losses'] = OrderedDict(rpn_fpn_cls_losses)
-        stats['rpn_fpn_bbox_losses'] = OrderedDict(rpn_fpn_bbox_losses)
+        stats["head_losses"] = OrderedDict(head_losses)
+        stats["rpn_losses"] = OrderedDict(rpn_losses)
+        stats["rpn_fpn_cls_losses"] = OrderedDict(rpn_fpn_cls_losses)
+        stats["rpn_fpn_bbox_losses"] = OrderedDict(rpn_fpn_bbox_losses)
 
         return stats

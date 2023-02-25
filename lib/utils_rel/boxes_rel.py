@@ -2,7 +2,7 @@
 # Based on Detectron.pytorch/lib/utils/boxes.py
 #
 # Original license text below:
-# 
+#
 #############################################################################
 # Copyright (c) 2017-present, Facebook, Inc.
 #
@@ -46,18 +46,15 @@ Since we have a long history of training models with the "+ 1" convention, we
 are reluctant to change it even if our modern tastes prefer not to use it.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
 import warnings
+
 import numpy as np
-
-from core.config import cfg
 import utils_rel.cython_bbox_rel as cython_bbox_rel
+from core.config import cfg
 from utils.boxes import bbox_transform_inv
-
 
 bbox_pair_overlaps = cython_bbox_rel.bbox_pair_overlaps
 
@@ -71,7 +68,7 @@ def get_spt_features(boxes1, boxes2, width, height):
     spt_feat_u2 = get_pair_feature(boxes_u, boxes2)
     return np.hstack((spt_feat_12, spt_feat_1u, spt_feat_u2, spt_feat_1, spt_feat_2))
 
-    
+
 def get_pair_feature(boxes1, boxes2):
     delta_1 = bbox_transform_inv(boxes1, boxes2)
     delta_2 = bbox_transform_inv(boxes2, boxes1)
@@ -84,9 +81,13 @@ def get_box_feature(boxes, width, height):
     f2 = boxes[:, 1] / height
     f3 = boxes[:, 2] / width
     f4 = boxes[:, 3] / height
-    f5 = (boxes[:, 2] - boxes[:, 0] + 1) * (boxes[:, 3] - boxes[:, 1] + 1) / (width * height)
+    f5 = (
+        (boxes[:, 2] - boxes[:, 0] + 1)
+        * (boxes[:, 3] - boxes[:, 1] + 1)
+        / (width * height)
+    )
     return np.vstack((f1, f2, f3, f4, f5)).transpose()
-    
+
 
 def boxes_union(boxes1, boxes2):
     assert boxes1.shape == boxes2.shape

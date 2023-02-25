@@ -1,11 +1,10 @@
 import numpy as np
-from torch import nn
-
-from core.config import cfg
-from datasets import json_dataset
 import roi_data.fast_rcnn
 import utils.blob as blob_utils
 import utils.fpn as fpn_utils
+from core.config import cfg
+from datasets import json_dataset
+from torch import nn
 
 
 class CollectAndDistributeFpnRpnProposalsOp(nn.Module):
@@ -36,6 +35,7 @@ class CollectAndDistributeFpnRpnProposalsOp(nn.Module):
     If used during training, then the output blobs will also include:
         [labels, bbox_targets, bbox_inside_weights, bbox_outside_weights].
     """
+
     def __init__(self):
         super().__init__()
 
@@ -46,8 +46,8 @@ class CollectAndDistributeFpnRpnProposalsOp(nn.Module):
                                rpn_roi_probs_fpn2, ..., rpn_roi_probs_fpn6]
             im_info: [[im_height, im_width, im_scale], ...]
         """
-        is_roidb_none = (roidb is None)
-        
+        is_roidb_none = roidb is None
+
         rois = collect(inputs, self.training, is_roidb_none)
         if self.training and roidb is not None:
             # During training we reuse the data loader code. We populate roidb
@@ -72,11 +72,13 @@ class CollectAndDistributeFpnRpnProposalsOp(nn.Module):
 
 
 def collect(inputs, is_training, is_roidb_none):
-    cfg_key = 'TRAIN' if is_training else 'TEST'
-    
-    cfg_key = 'TEST' if (is_roidb_none or (not is_training)) else 'TRAIN' ###!!! 
-    
-    post_nms_topN = int(cfg[cfg_key].RPN_POST_NMS_TOP_N * cfg.FPN.RPN_COLLECT_SCALE + 0.5)
+    cfg_key = "TRAIN" if is_training else "TEST"
+
+    cfg_key = "TEST" if (is_roidb_none or (not is_training)) else "TRAIN"  ###!!!
+
+    post_nms_topN = int(
+        cfg[cfg_key].RPN_POST_NMS_TOP_N * cfg.FPN.RPN_COLLECT_SCALE + 0.5
+    )
     k_max = cfg.FPN.RPN_MAX_LEVEL
     k_min = cfg.FPN.RPN_MIN_LEVEL
     num_lvls = k_max - k_min + 1
@@ -112,7 +114,7 @@ def distribute(rois, label_blobs):
     # Create new roi blobs for each FPN level
     # (See: utils.fpn.add_multilevel_roi_blobs which is similar but annoying
     # to generalize to support this particular case.)
-    rois_idx_order = np.empty((0, ))
+    rois_idx_order = np.empty((0,))
     for output_idx, lvl in enumerate(range(lvl_min, lvl_max + 1)):
         idx_lvl = np.where(lvls == lvl)[0]
         blob_roi_level = rois[idx_lvl, :]

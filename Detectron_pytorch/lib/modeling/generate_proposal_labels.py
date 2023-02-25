@@ -1,8 +1,7 @@
-from torch import nn
-
+import roi_data.fast_rcnn
 from core.config import cfg
 from datasets import json_dataset
-import roi_data.fast_rcnn
+from torch import nn
 
 
 class GenerateProposalLabelsOp(nn.Module):

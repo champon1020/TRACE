@@ -1,21 +1,25 @@
 import collections
 import re
+
 import numpy as np
 import torch
+from torch._six import int_classes, string_classes
 from torch.autograd import Variable
-from ._functions import Scatter, Gather
-from torch._six import string_classes, int_classes
-#from torch.utils.data.dataloader import numpy_type_map
+
+from ._functions import Gather, Scatter
+
+# from torch.utils.data.dataloader import numpy_type_map
 numpy_type_map = {
-    'float64': torch.DoubleTensor,
-    'float32': torch.FloatTensor,
-    'float16': torch.HalfTensor,
-    'int64': torch.LongTensor,
-    'int32': torch.IntTensor,
-    'int16': torch.ShortTensor,
-    'int8': torch.CharTensor,
-    'uint8': torch.ByteTensor,
+    "float64": torch.DoubleTensor,
+    "float32": torch.FloatTensor,
+    "float16": torch.HalfTensor,
+    "int64": torch.LongTensor,
+    "int32": torch.IntTensor,
+    "int16": torch.ShortTensor,
+    "int8": torch.CharTensor,
+    "uint8": torch.ByteTensor,
 }
+
 
 def scatter(inputs, target_gpus, dim=0):
     r"""
@@ -24,6 +28,7 @@ def scatter(inputs, target_gpus, dim=0):
     references to objects that are not variables. Does not
     support Tensors.
     """
+
     def scatter_map(obj):
         if isinstance(obj, Variable):
             return Scatter.apply(target_gpus, None, dim, obj)
@@ -78,18 +83,23 @@ def gather(outputs, target_device, dim=0):
             return type(out)(map(gather_map, zip(*outputs)))
         elif isinstance(out, collections.Mapping):
             return {key: gather_map([d[key] for d in outputs]) for key in out}
-        elif elem_type.__module__ == 'numpy' and elem_type.__name__ != 'str_' \
-                and elem_type.__name__ != 'string_':
+        elif (
+            elem_type.__module__ == "numpy"
+            and elem_type.__name__ != "str_"
+            and elem_type.__name__ != "string_"
+        ):
             elem = out
-            if elem_type.__name__ == 'ndarray':
+            if elem_type.__name__ == "ndarray":
                 # array of string classes and object
-                if re.search('[SaUO]', elem.dtype.str) is not None:
+                if re.search("[SaUO]", elem.dtype.str) is not None:
                     raise TypeError(error_msg.format(elem.dtype))
 
                 return Variable(torch.from_numpy(np.concatenate(outputs, dim)))
             if elem.shape == ():  # scalars
-                py_type = float if elem.dtype.name.startswith('float') else int
-                return Variable(numpy_type_map[elem.dtype.name](list(map(py_type, outputs))))
+                py_type = float if elem.dtype.name.startswith("float") else int
+                return Variable(
+                    numpy_type_map[elem.dtype.name](list(map(py_type, outputs)))
+                )
         elif isinstance(out, int_classes):
             return Variable(torch.LongTensor(outputs))
         elif isinstance(out, float):

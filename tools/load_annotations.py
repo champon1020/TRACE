@@ -1,21 +1,24 @@
-import os
 import math
+import os
 import pickle
 
 
 def load_annotations(annotation_dir):
-    with open(os.path.join(annotation_dir, 'object_bbox_and_relationship.pkl'), 'rb') as f:
+    with open(
+        os.path.join(annotation_dir, "object_bbox_and_relationship.pkl"), "rb"
+    ) as f:
         object_anno = pickle.load(f)
 
-    with open(os.path.join(annotation_dir, 'person_bbox.pkl'), 'rb') as f:
+    with open(os.path.join(annotation_dir, "person_bbox.pkl"), "rb") as f:
         person_anno = pickle.load(f)
 
     frame_list = []
-    with open(os.path.join(annotation_dir, 'frame_list.txt'), 'r') as f:
+    with open(os.path.join(annotation_dir, "frame_list.txt"), "r") as f:
         for frame in f:
-            frame_list.append(frame.rstrip('\n'))
+            frame_list.append(frame.rstrip("\n"))
 
     return object_anno, person_anno, frame_list
+
 
 def show_person_bbox(person_anno, max_show_num=2):
     cnt = 0
@@ -26,6 +29,7 @@ def show_person_bbox(person_anno, max_show_num=2):
         print(val)
         cnt = cnt + 1
 
+
 def show_object_bbox_and_relationship(object_anno, max_show_num=2):
     cnt = 0
     for key, val in object_anno.items():
@@ -34,6 +38,7 @@ def show_object_bbox_and_relationship(object_anno, max_show_num=2):
         print(key)
         print(val)
         cnt = cnt + 1
+
 
 def count_object_bbox_and_relationship(object_anno):
     cnt_spatial_relationship = 0
@@ -49,38 +54,59 @@ def count_object_bbox_and_relationship(object_anno):
         i = 0
         cnt_obj = cnt_obj + len(val)
         for obj in val:
-            if obj['visible'] is not None:
+            if obj["visible"] is not None:
                 cnt_visible = cnt_visible + 1
                 i = i + 1
-            if obj['spatial_relationship'] is not None:
-                cnt_spatial_relationship = max(cnt_spatial_relationship, len(obj['spatial_relationship']))
-                if len(obj['spatial_relationship']) > 3:
+            if obj["spatial_relationship"] is not None:
+                cnt_spatial_relationship = max(
+                    cnt_spatial_relationship, len(obj["spatial_relationship"])
+                )
+                if len(obj["spatial_relationship"]) > 3:
                     if flg is False:
                         flg = True
-                        print(key, val)    # Q8XEE.mp4/000111.png [{'class': 'sofa/couch', 'bbox': (57.07142857142854, 226.5, 212.4332564325793, 132.5), 'attention_relationship': ['not_looking_at'], 'spatial_relationship': ['behind', 'beneath', 'on_the_side_of', 'in_front_of'], 'contacting_relationship': ['sitting_on'], 'metadata': {'tag': 'Q8XEE.mp4/sofa_couch/000111', 'set': 'train'}, 'visible': True}, {'class': 'laptop', 'bbox': (162.94264069264077, 275.38492063492026, 42.33333333333334, 9.0), 'attention_relationship': ['looking_at'], 'spatial_relationship': ['in_front_of'], 'contacting_relationship': ['touching'], 'metadata': {'tag': 'Q8XEE.mp4/laptop/000111', 'set': 'train'}, 'visible': True}, {'class': 'dish', 'bbox': (204.93649065228874, 276.9772712476055, 44.572616404055246, 9.258509950993453), 'attention_relationship': ['looking_at'], 'spatial_relationship': ['in_front_of'], 'contacting_relationship': ['touching'], 'metadata': {'tag': 'Q8XEE.mp4/dish/000111', 'set': 'train'}, 'visible': True}]
-            if obj['contacting_relationship'] is not None:
-                cnt_contacting_relationship = max(cnt_contacting_relationship, len(obj['contacting_relationship']))
-            if obj['attention_relationship'] is not None:
-                cnt_attention_relationship = max(cnt_attention_relationship, len(obj['attention_relationship']))
+                        print(
+                            key, val
+                        )  # Q8XEE.mp4/000111.png [{'class': 'sofa/couch', 'bbox': (57.07142857142854, 226.5, 212.4332564325793, 132.5), 'attention_relationship': ['not_looking_at'], 'spatial_relationship': ['behind', 'beneath', 'on_the_side_of', 'in_front_of'], 'contacting_relationship': ['sitting_on'], 'metadata': {'tag': 'Q8XEE.mp4/sofa_couch/000111', 'set': 'train'}, 'visible': True}, {'class': 'laptop', 'bbox': (162.94264069264077, 275.38492063492026, 42.33333333333334, 9.0), 'attention_relationship': ['looking_at'], 'spatial_relationship': ['in_front_of'], 'contacting_relationship': ['touching'], 'metadata': {'tag': 'Q8XEE.mp4/laptop/000111', 'set': 'train'}, 'visible': True}, {'class': 'dish', 'bbox': (204.93649065228874, 276.9772712476055, 44.572616404055246, 9.258509950993453), 'attention_relationship': ['looking_at'], 'spatial_relationship': ['in_front_of'], 'contacting_relationship': ['touching'], 'metadata': {'tag': 'Q8XEE.mp4/dish/000111', 'set': 'train'}, 'visible': True}]
+            if obj["contacting_relationship"] is not None:
+                cnt_contacting_relationship = max(
+                    cnt_contacting_relationship, len(obj["contacting_relationship"])
+                )
+            if obj["attention_relationship"] is not None:
+                cnt_attention_relationship = max(
+                    cnt_attention_relationship, len(obj["attention_relationship"])
+                )
         cnt_visible_max = max(cnt_visible_max, i)
-    print('cnt_spatial_relationship: '+str(cnt_spatial_relationship))        #cnt_spatial_relationship: 5
-    print('cnt_contacting_relationship: '+str(cnt_contacting_relationship))        #cnt_contacting_relationship: 4
-    print('cnt_attention_relationship: '+str(cnt_attention_relationship))        #cnt_attention_relationship: 1
-    print('cnt_visible: '+str(cnt_visible))        #cnt_visible: 737427
-    print('cnt_visible_per_frame: '+str(cnt_visible / cnt_frame))        #cnt_visible_per_frame: 2.553576746473118
-    print('cnt_visible_per_frame_max: '+str(cnt_visible_max))        #cnt_visible_per_frame_max: 9
-    print('cnt_obj_per_frame: '+str(cnt_obj / cnt_frame))        #cnt_obj_per_frame: 2.553576746473118
-        
+    print(
+        "cnt_spatial_relationship: " + str(cnt_spatial_relationship)
+    )  # cnt_spatial_relationship: 5
+    print(
+        "cnt_contacting_relationship: " + str(cnt_contacting_relationship)
+    )  # cnt_contacting_relationship: 4
+    print(
+        "cnt_attention_relationship: " + str(cnt_attention_relationship)
+    )  # cnt_attention_relationship: 1
+    print("cnt_visible: " + str(cnt_visible))  # cnt_visible: 737427
+    print(
+        "cnt_visible_per_frame: " + str(cnt_visible / cnt_frame)
+    )  # cnt_visible_per_frame: 2.553576746473118
+    print(
+        "cnt_visible_per_frame_max: " + str(cnt_visible_max)
+    )  # cnt_visible_per_frame_max: 9
+    print(
+        "cnt_obj_per_frame: " + str(cnt_obj / cnt_frame)
+    )  # cnt_obj_per_frame: 2.553576746473118
+
+
 if __name__ == "__main__":
-    annotation_dir = '../data/ag/annotations'
+    annotation_dir = "../data/ag/annotations"
     object_anno, person_anno, frame_list = load_annotations(annotation_dir)
     assert set(object_anno.keys()) == set(person_anno.keys())
     assert len(object_anno) == len(frame_list)
-    #show_person_bbox(person_anno)
-    #show_object_bbox_and_relationship(object_anno, max_show_num=10)
+    # show_person_bbox(person_anno)
+    # show_object_bbox_and_relationship(object_anno, max_show_num=10)
     count_object_bbox_and_relationship(object_anno)
-    
-'''
+
+"""
 
 001YG.mp4/000089.png
 {'bbox': array([[ 24.29774 ,  71.443954, 259.23602 , 268.20288 ]], dtype=float32), 'bbox_score': array([0.9960979], dtype=float32), 'bbox_size': (480, 270), 'bbox_mode': 'xyxy', 'keypoints': array([[[149.51952 , 120.54931 ,   1.      ],
@@ -168,4 +194,4 @@ E546V.mp4/000463.png
 E546V.mp4/000331.png
 [{'class': 'light', 'bbox': None, 'attention_relationship': None, 'spatial_relationship': None, 'contacting_relationship': None, 'metadata': {'tag': 'E546V.mp4/light/000331', 'set': 'train'}, 'visible': False}]
 
-'''
+"""

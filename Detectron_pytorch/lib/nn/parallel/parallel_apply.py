@@ -1,4 +1,5 @@
 import threading
+
 import torch
 from torch.autograd import Variable
 
@@ -47,11 +48,15 @@ def parallel_apply(modules, inputs, kwargs_tup=None, devices=None):
                 results[i] = e
 
     if len(modules) > 1:
-        threads = [threading.Thread(target=_worker,
-                                    args=(i, module, input, kwargs, results, lock, device),
-                                    )
-                   for i, (module, input, kwargs, device) in
-                   enumerate(zip(modules, inputs, kwargs_tup, devices))]
+        threads = [
+            threading.Thread(
+                target=_worker,
+                args=(i, module, input, kwargs, results, lock, device),
+            )
+            for i, (module, input, kwargs, device) in enumerate(
+                zip(modules, inputs, kwargs_tup, devices)
+            )
+        ]
 
         for thread in threads:
             thread.start()

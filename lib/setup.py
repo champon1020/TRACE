@@ -11,13 +11,10 @@
 
 from __future__ import print_function
 
+import numpy as np
 from Cython.Build import cythonize
 from Cython.Distutils import build_ext
-from setuptools import Extension
-from setuptools import setup
-
-import numpy as np
-
+from setuptools import Extension, setup
 
 # Obtain the numpy include directory.  This logic works across numpy versions.
 try:
@@ -28,15 +25,11 @@ except AttributeError:
 
 ext_modules = [
     Extension(
-        name='utils_rel.cython_bbox_rel',
-        sources=['utils_rel/cython_bbox_rel.pyx'],
-        extra_compile_args=['-Wno-cpp'],
-        include_dirs=[numpy_include]
+        name="utils_rel.cython_bbox_rel",
+        sources=["utils_rel/cython_bbox_rel.pyx"],
+        extra_compile_args=["-Wno-cpp"],
+        include_dirs=[numpy_include],
     )
 ]
 
-setup(
-    name='mask_rcnn_rel',
-    ext_modules=cythonize(ext_modules)
-)
-
+setup(name="mask_rcnn_rel", ext_modules=cythonize(ext_modules))

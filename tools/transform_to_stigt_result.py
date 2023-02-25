@@ -13,7 +13,7 @@ parser.add_argument("--output_dir", type=str, required=True)
 class DataEnconding(json.JSONEncoder):
     def default(self, obj):
         if isinstance(
-                obj,
+            obj,
             (
                 np.int_,
                 np.intc,
@@ -31,9 +31,9 @@ class DataEnconding(json.JSONEncoder):
             return int(obj)
         elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
             return float(obj)
-        elif isinstance(obj, (np.ndarray, )):  # add this line
+        elif isinstance(obj, (np.ndarray,)):  # add this line
             return obj.tolist()  # add this line
-        elif isinstance(obj, (torch.Tensor, )):
+        elif isinstance(obj, (torch.Tensor,)):
             return obj.cpu().detach().tolist()
         return json.JSONEncoder.default(self, obj)
 
@@ -45,8 +45,7 @@ def argsort_desc(scores):
     :return: an array of size [numel(scores), dim(scores)] where each row is the index you'd
              need to get the score.
     """
-    return np.column_stack(
-        np.unravel_index(np.argsort(-scores.ravel()), scores.shape))
+    return np.column_stack(np.unravel_index(np.argsort(-scores.ravel()), scores.shape))
 
 
 def to_image_id(image_path: str):
@@ -79,23 +78,24 @@ def main(args):
         det_scores_spo = det_scores_so[:, None] * det_scores_prd[:, :prdk]
 
         det_scores_inds = argsort_desc(det_scores_spo)[:topk]
-        det_scores_top = det_scores_spo[det_scores_inds[:, 0],
-                                        det_scores_inds[:, 1]]
+        det_scores_top = det_scores_spo[det_scores_inds[:, 0], det_scores_inds[:, 1]]
 
         # >> original
         det_scores_s_top = det_scores_sbj[det_scores_inds[:, 0]]
         det_scores_o_top = det_scores_obj[det_scores_inds[:, 0]]
         # << original
 
-        det_boxes_so_top = np.hstack((det_boxes_sbj[det_scores_inds[:, 0]],
-                                      det_boxes_obj[det_scores_inds[:, 0]]))
-        det_labels_p_top = det_labels_prd[det_scores_inds[:, 0],
-                                          det_scores_inds[:, 1]]
-        det_labels_spo_top = np.vstack((
-            det_labels_sbj[det_scores_inds[:, 0]],
-            det_labels_p_top,
-            det_labels_obj[det_scores_inds[:, 0]],
-        )).transpose()
+        det_boxes_so_top = np.hstack(
+            (det_boxes_sbj[det_scores_inds[:, 0]], det_boxes_obj[det_scores_inds[:, 0]])
+        )
+        det_labels_p_top = det_labels_prd[det_scores_inds[:, 0], det_scores_inds[:, 1]]
+        det_labels_spo_top = np.vstack(
+            (
+                det_labels_sbj[det_scores_inds[:, 0]],
+                det_labels_p_top,
+                det_labels_obj[det_scores_inds[:, 0]],
+            )
+        ).transpose()
 
         # filter out bad relationships
         cand_inds = np.where(det_scores_top > 0.00001)[0]
@@ -126,12 +126,9 @@ def main(args):
             rels.append([i, num_rel + i, det_labels_p_top[i]])
         if len(rels) == 0:
             continue
-        boxes = np.concatenate([det_boxes_s_top, det_boxes_o_top],
-                               axis=0).tolist()
-        labels = np.concatenate([det_labels_s_top, det_labels_o_top],
-                                axis=0).tolist()
-        scores = np.concatenate([det_scores_s_top, det_scores_o_top],
-                                axis=0).tolist()
+        boxes = np.concatenate([det_boxes_s_top, det_boxes_o_top], axis=0).tolist()
+        labels = np.concatenate([det_labels_s_top, det_labels_o_top], axis=0).tolist()
+        scores = np.concatenate([det_scores_s_top, det_scores_o_top], axis=0).tolist()
         rel_scores = det_scores_top.tolist()
 
         # Process GT

@@ -1,9 +1,10 @@
 import torch
-from torch.nn import Module
 from torch.autograd import Variable
-from .scatter_gather import scatter_kwargs, gather
-from .replicate import replicate
+from torch.nn import Module
+
 from .parallel_apply import parallel_apply
+from .replicate import replicate
+from .scatter_gather import gather, scatter_kwargs
 
 
 class DataParallel(Module):
@@ -48,8 +49,16 @@ class DataParallel(Module):
 
     # TODO: update notes/cuda.rst when this class handles 8+ GPUs well
 
-    def __init__(self, module, device_ids=None, output_device=None, dim=0, 
-                 cpu_keywords=[], minibatch=False, batch_outputs=True):
+    def __init__(
+        self,
+        module,
+        device_ids=None,
+        output_device=None,
+        dim=0,
+        cpu_keywords=[],
+        minibatch=False,
+        batch_outputs=True,
+    ):
         super(DataParallel, self).__init__()
 
         if not torch.cuda.is_available():
@@ -98,8 +107,12 @@ class DataParallel(Module):
             for k, v in kwargs_cpu.items():
                 split_size = v.size(self.dim) / len(self.device_ids)
                 assert split_size.is_integer()
-                kwargs_cpu[k] = list(map(Variable, torch.split(v.data, int(split_size), self.dim)))
-            kwargs_cpu = list(map(dict, zip(*[[(k, v) for v in vs] for k, vs in kwargs_cpu.items()]))) # a list of dict
+                kwargs_cpu[k] = list(
+                    map(Variable, torch.split(v.data, int(split_size), self.dim))
+                )
+            kwargs_cpu = list(
+                map(dict, zip(*[[(k, v) for v in vs] for k, vs in kwargs_cpu.items()]))
+            )  # a list of dict
             # Merge cpu kwargs with gpu kwargs
             for d_gpu, d_cpu in zip(kwargs, kwargs_cpu):
                 d_gpu.update(d_cpu)
@@ -107,7 +120,7 @@ class DataParallel(Module):
         if len(self.device_ids) == 1:
             outputs = [self.module(*inputs[0], **kwargs[0])]
         else:
-            replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
+            replicas = self.replicate(self.module, self.device_ids[: len(inputs)])
             outputs = self.parallel_apply(replicas, inputs, kwargs)
 
         if self.batch_outputs:
@@ -123,7 +136,7 @@ class DataParallel(Module):
         for k in self.cpu_keywords:
             kwargs.pop(k, None)
         inputs, kwargs = self.scatter(inputs, kwargs, [device_id])
-        kwargs_cpu = [kwargs_cpu] # a list of dict
+        kwargs_cpu = [kwargs_cpu]  # a list of dict
         # Merge cpu kwargs with gpu kwargs
         for d_gpu, d_cpu in zip(kwargs, kwargs_cpu):
             d_gpu.update(d_cpu)
@@ -136,13 +149,17 @@ class DataParallel(Module):
         return scatter_kwargs(inputs, kwargs, device_ids, dim=self.dim)
 
     def parallel_apply(self, replicas, inputs, kwargs):
-        return parallel_apply(replicas, inputs, kwargs, self.device_ids[:len(replicas)])
+        return parallel_apply(
+            replicas, inputs, kwargs, self.device_ids[: len(replicas)]
+        )
 
     def gather(self, outputs, output_device):
         return gather(outputs, output_device, dim=self.dim)
 
 
-def data_parallel(module, inputs, device_ids=None, output_device=None, dim=0, module_kwargs=None):
+def data_parallel(
+    module, inputs, device_ids=None, output_device=None, dim=0, module_kwargs=None
+):
     r"""Evaluates module(input) in parallel across the GPUs given in device_ids.
 
     This is the functional version of the DataParallel module.
@@ -169,7 +186,7 @@ def data_parallel(module, inputs, device_ids=None, output_device=None, dim=0, mo
     inputs, module_kwargs = scatter_kwargs(inputs, module_kwargs, device_ids, dim)
     if len(device_ids) == 1:
         return module(*inputs[0], **module_kwargs[0])
-    used_device_ids = device_ids[:len(inputs)]
+    used_device_ids = device_ids[: len(inputs)]
     replicas = replicate(module, used_device_ids)
     outputs = parallel_apply(replicas, inputs, module_kwargs, used_device_ids)
     return gather(outputs, output_device, dim)

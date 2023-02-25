@@ -61,7 +61,7 @@ def generate_anchors(
     return _generate_anchors(
         stride,
         np.array(sizes, dtype=np.float) / stride,
-        np.array(aspect_ratios, dtype=np.float)
+        np.array(aspect_ratios, dtype=np.float),
     )
 
 
@@ -97,7 +97,7 @@ def _mkanchors(ws, hs, x_ctr, y_ctr):
             x_ctr - 0.5 * (ws - 1),
             y_ctr - 0.5 * (hs - 1),
             x_ctr + 0.5 * (ws - 1),
-            y_ctr + 0.5 * (hs - 1)
+            y_ctr + 0.5 * (hs - 1),
         )
     )
     return anchors

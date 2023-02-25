@@ -22,16 +22,13 @@
 # --------------------------------------------------------
 """blob helper functions."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
-from six.moves import cPickle as pickle
-import numpy as np
 import cv2
-
+import numpy as np
 from core.config import cfg
+from six.moves import cPickle as pickle
 
 
 def get_image_blob(im, target_scale, target_max_size):
@@ -76,11 +73,10 @@ def im_list_to_blob(ims):
     max_shape = get_max_shape([im.shape[:2] for im in ims])
 
     num_images = len(ims)
-    blob = np.zeros(
-        (num_images, max_shape[0], max_shape[1], 3), dtype=np.float32)
+    blob = np.zeros((num_images, max_shape[0], max_shape[1], 3), dtype=np.float32)
     for i in range(num_images):
         im = ims[i]
-        blob[i, 0:im.shape[0], 0:im.shape[1], :] = im
+        blob[i, 0 : im.shape[0], 0 : im.shape[1], :] = im
     # Move channels (axis 3) to axis 1
     # Axis order will become: (batch elem, channel, height, width)
     channel_swap = (0, 3, 1, 2)
@@ -89,8 +85,7 @@ def im_list_to_blob(ims):
 
 
 def get_max_shape(im_shapes):
-    """Calculate max spatial size (h, w) for batching given a list of image shapes
-    """
+    """Calculate max spatial size (h, w) for batching given a list of image shapes"""
     max_shape = np.array(im_shapes).max(axis=0)
     assert max_shape.size == 2
     # Pad the image so they can be divisible by a stride
@@ -119,16 +114,16 @@ def prep_im_for_blob(im, pixel_means, target_sizes, max_size):
     im_scales = []
     for target_size in target_sizes:
         im_scale = get_target_scale(im_size_min, im_size_max, target_size, max_size)
-        im_resized = cv2.resize(im, None, None, fx=im_scale, fy=im_scale,
-                                interpolation=cv2.INTER_LINEAR)
+        im_resized = cv2.resize(
+            im, None, None, fx=im_scale, fy=im_scale, interpolation=cv2.INTER_LINEAR
+        )
         ims.append(im_resized)
         im_scales.append(im_scale)
     return ims, im_scales
 
 
 def get_im_blob_sizes(im_shape, target_sizes, max_size):
-    """Calculate im blob size for multiple target_sizes given original im shape
-    """
+    """Calculate im blob size for multiple target_sizes given original im shape"""
     im_size_min = np.min(im_shape)
     im_size_max = np.max(im_shape)
     im_sizes = []
@@ -139,8 +134,7 @@ def get_im_blob_sizes(im_shape, target_sizes, max_size):
 
 
 def get_target_scale(im_size_min, im_size_max, target_size, max_size):
-    """Calculate target resize scale
-    """
+    """Calculate target resize scale"""
     im_scale = float(target_size) / float(im_size_min)
     # Prevent the biggest axis from being more than max_size
     if np.round(im_scale * im_size_max) > max_size:

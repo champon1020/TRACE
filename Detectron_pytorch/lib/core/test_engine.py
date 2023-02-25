@@ -15,21 +15,23 @@
 
 """Test a Detectron network on an imdb (image database)."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
-from collections import defaultdict
-import cv2
 import datetime
 import logging
-import numpy as np
 import os
-import yaml
+from collections import defaultdict
 
+import cv2
+import nn as mynn
+import numpy as np
 import torch
-
+import utils.env as envu
+import utils.net as net_utils
+import utils.subprocess as subprocess_utils
+import utils.vis as vis_utils
+import yaml
 from core.config import cfg
 # from core.rpn_generator import generate_rpn_on_dataset  #TODO: for rpn only case
 # from core.rpn_generator import generate_rpn_on_range
@@ -37,12 +39,7 @@ from core.test import im_detect_all
 from datasets import task_evaluation
 from datasets.json_dataset import JsonDataset
 from modeling import model_builder
-import nn as mynn
 from utils.detectron_weight_helper import load_detectron_weight
-import utils.env as envu
-import utils.net as net_utils
-import utils.subprocess as subprocess_utils
-import utils.vis as vis_utils
 from utils.io import save_object
 from utils.timer import Timer
 
@@ -65,17 +62,20 @@ def get_eval_functions():
 
 
 def get_inference_dataset(index, is_parent=True):
-    assert is_parent or len(cfg.TEST.DATASETS) == 1, \
-        'The child inference process can only work on a single dataset'
+    assert (
+        is_parent or len(cfg.TEST.DATASETS) == 1
+    ), "The child inference process can only work on a single dataset"
 
     dataset_name = cfg.TEST.DATASETS[index]
 
     if cfg.TEST.PRECOMPUTED_PROPOSALS:
-        assert is_parent or len(cfg.TEST.PROPOSAL_FILES) == 1, \
-            'The child inference process can only work on a single proposal file'
-        assert len(cfg.TEST.PROPOSAL_FILES) == len(cfg.TEST.DATASETS), \
-            'If proposals are used, one proposal file must be specified for ' \
-            'each dataset'
+        assert (
+            is_parent or len(cfg.TEST.PROPOSAL_FILES) == 1
+        ), "The child inference process can only work on a single proposal file"
+        assert len(cfg.TEST.PROPOSAL_FILES) == len(cfg.TEST.DATASETS), (
+            "If proposals are used, one proposal file must be specified for "
+            "each dataset"
+        )
         proposal_file = cfg.TEST.PROPOSAL_FILES[index]
     else:
         proposal_file = None
@@ -84,9 +84,12 @@ def get_inference_dataset(index, is_parent=True):
 
 
 def run_inference(
-        args, ind_range=None,
-        multi_gpu_testing=False, gpu_id=0,
-        check_expected_results=False):
+    args,
+    ind_range=None,
+    multi_gpu_testing=False,
+    gpu_id=0,
+    check_expected_results=False,
+):
     parent_func, child_func = get_eval_functions()
     is_parent = ind_range is None
 
@@ -105,7 +108,7 @@ def run_inference(
                     dataset_name,
                     proposal_file,
                     output_dir,
-                    multi_gpu=multi_gpu_testing
+                    multi_gpu=multi_gpu_testing,
                 )
                 all_results.update(results)
 
@@ -122,15 +125,13 @@ def run_inference(
                 proposal_file,
                 output_dir,
                 ind_range=ind_range,
-                gpu_id=gpu_id
+                gpu_id=gpu_id,
             )
 
     all_results = result_getter()
     if check_expected_results and is_parent:
         task_evaluation.check_expected_results(
-            all_results,
-            atol=cfg.EXPECTED_RESULTS_ATOL,
-            rtol=cfg.EXPECTED_RESULTS_RTOL
+            all_results, atol=cfg.EXPECTED_RESULTS_ATOL, rtol=cfg.EXPECTED_RESULTS_RTOL
         )
         task_evaluation.log_copy_paste_friendly_results(all_results)
 
@@ -138,12 +139,8 @@ def run_inference(
 
 
 def test_net_on_dataset(
-        args,
-        dataset_name,
-        proposal_file,
-        output_dir,
-        multi_gpu=False,
-        gpu_id=0):
+    args, dataset_name, proposal_file, output_dir, multi_gpu=False, gpu_id=0
+):
     """Run inference on a dataset."""
     dataset = JsonDataset(dataset_name)
     test_timer = Timer()
@@ -158,7 +155,7 @@ def test_net_on_dataset(
             args, dataset_name, proposal_file, output_dir, gpu_id=gpu_id
         )
     test_timer.toc()
-    logger.info('Total inference time: {:.3f}s'.format(test_timer.average_time))
+    logger.info("Total inference time: {:.3f}s".format(test_timer.average_time))
     results = task_evaluation.evaluate_all(
         dataset, all_boxes, all_segms, all_keyps, output_dir
     )
@@ -166,24 +163,30 @@ def test_net_on_dataset(
 
 
 def multi_gpu_test_net_on_dataset(
-        args, dataset_name, proposal_file, num_images, output_dir):
+    args, dataset_name, proposal_file, num_images, output_dir
+):
     """Multi-gpu inference on a dataset."""
     binary_dir = envu.get_runtime_dir()
     binary_ext = envu.get_py_bin_ext()
     binary = os.path.join(binary_dir, args.test_net_file + binary_ext)
-    assert os.path.exists(binary), 'Binary \'{}\' not found'.format(binary)
+    assert os.path.exists(binary), "Binary '{}' not found".format(binary)
 
     # Pass the target dataset and proposal file (if any) via the command line
-    opts = ['TEST.DATASETS', '("{}",)'.format(dataset_name)]
+    opts = ["TEST.DATASETS", '("{}",)'.format(dataset_name)]
     if proposal_file:
-        opts += ['TEST.PROPOSAL_FILES', '("{}",)'.format(proposal_file)]
+        opts += ["TEST.PROPOSAL_FILES", '("{}",)'.format(proposal_file)]
 
     # Run inference in parallel in subprocesses
     # Outputs will be a list of outputs from each subprocess, where the output
     # of each subprocess is the dictionary saved by test_net().
     outputs = subprocess_utils.process_in_parallel(
-        'detection', num_images, binary, output_dir,
-        args.load_ckpt, args.load_detectron, opts
+        "detection",
+        num_images,
+        binary,
+        output_dir,
+        args.load_ckpt,
+        args.load_detectron,
+        opts,
     )
 
     # Collate the results from each subprocess
@@ -191,40 +194,33 @@ def multi_gpu_test_net_on_dataset(
     all_segms = [[] for _ in range(cfg.MODEL.NUM_CLASSES)]
     all_keyps = [[] for _ in range(cfg.MODEL.NUM_CLASSES)]
     for det_data in outputs:
-        all_boxes_batch = det_data['all_boxes']
-        all_segms_batch = det_data['all_segms']
-        all_keyps_batch = det_data['all_keyps']
+        all_boxes_batch = det_data["all_boxes"]
+        all_segms_batch = det_data["all_segms"]
+        all_keyps_batch = det_data["all_keyps"]
         for cls_idx in range(1, cfg.MODEL.NUM_CLASSES):
             all_boxes[cls_idx] += all_boxes_batch[cls_idx]
             all_segms[cls_idx] += all_segms_batch[cls_idx]
             all_keyps[cls_idx] += all_keyps_batch[cls_idx]
-    det_file = os.path.join(output_dir, 'detections.pkl')
+    det_file = os.path.join(output_dir, "detections.pkl")
     cfg_yaml = yaml.dump(cfg)
     save_object(
         dict(
-            all_boxes=all_boxes,
-            all_segms=all_segms,
-            all_keyps=all_keyps,
-            cfg=cfg_yaml
-        ), det_file
+            all_boxes=all_boxes, all_segms=all_segms, all_keyps=all_keyps, cfg=cfg_yaml
+        ),
+        det_file,
     )
-    logger.info('Wrote detections to: {}'.format(os.path.abspath(det_file)))
+    logger.info("Wrote detections to: {}".format(os.path.abspath(det_file)))
 
     return all_boxes, all_segms, all_keyps
 
 
-def test_net(
-        args,
-        dataset_name,
-        proposal_file,
-        output_dir,
-        ind_range=None,
-        gpu_id=0):
+def test_net(args, dataset_name, proposal_file, output_dir, ind_range=None, gpu_id=0):
     """Run inference on all images in a dataset or over an index range of images
     in a dataset using a single GPU.
     """
-    assert not cfg.MODEL.RPN_ONLY, \
-        'Use rpn_generate to generate proposals from RPN-only models'
+    assert (
+        not cfg.MODEL.RPN_ONLY
+    ), "Use rpn_generate to generate proposals from RPN-only models"
 
     roidb, dataset, start_ind, end_ind, total_num_images = get_roidb_and_dataset(
         dataset_name, proposal_file, ind_range
@@ -241,7 +237,7 @@ def test_net(
             # detection on the *non*-ground-truth rois. We select only the rois
             # that have the gt_classes field set to 0, which means there's no
             # ground truth.
-            box_proposals = entry['boxes'][entry['gt_classes'] == 0]
+            box_proposals = entry["boxes"][entry["gt_classes"] == 0]
             if len(box_proposals) == 0:
                 continue
         else:
@@ -249,8 +245,10 @@ def test_net(
             # in-network RPN; 1-stage models don't require proposals.
             box_proposals = None
 
-        im = cv2.imread(entry['image'])
-        cls_boxes_i, cls_segms_i, cls_keyps_i = im_detect_all(model, im, box_proposals, timers)
+        im = cv2.imread(entry["image"])
+        cls_boxes_i, cls_segms_i, cls_keyps_i = im_detect_all(
+            model, im, box_proposals, timers
+        )
 
         extend_results(i, all_boxes, cls_boxes_i)
         if cls_segms_i is not None:
@@ -263,55 +261,59 @@ def test_net(
             eta_seconds = ave_total_time * (num_images - i - 1)
             eta = str(datetime.timedelta(seconds=int(eta_seconds)))
             det_time = (
-                timers['im_detect_bbox'].average_time +
-                timers['im_detect_mask'].average_time +
-                timers['im_detect_keypoints'].average_time
+                timers["im_detect_bbox"].average_time
+                + timers["im_detect_mask"].average_time
+                + timers["im_detect_keypoints"].average_time
             )
             misc_time = (
-                timers['misc_bbox'].average_time +
-                timers['misc_mask'].average_time +
-                timers['misc_keypoints'].average_time
+                timers["misc_bbox"].average_time
+                + timers["misc_mask"].average_time
+                + timers["misc_keypoints"].average_time
             )
             logger.info(
                 (
-                    'im_detect: range [{:d}, {:d}] of {:d}: '
-                    '{:d}/{:d} {:.3f}s + {:.3f}s (eta: {})'
+                    "im_detect: range [{:d}, {:d}] of {:d}: "
+                    "{:d}/{:d} {:.3f}s + {:.3f}s (eta: {})"
                 ).format(
-                    start_ind + 1, end_ind, total_num_images, start_ind + i + 1,
-                    start_ind + num_images, det_time, misc_time, eta
+                    start_ind + 1,
+                    end_ind,
+                    total_num_images,
+                    start_ind + i + 1,
+                    start_ind + num_images,
+                    det_time,
+                    misc_time,
+                    eta,
                 )
             )
 
         if cfg.VIS:
-            im_name = os.path.splitext(os.path.basename(entry['image']))[0]
+            im_name = os.path.splitext(os.path.basename(entry["image"]))[0]
             vis_utils.vis_one_image(
                 im[:, :, ::-1],
-                '{:d}_{:s}'.format(i, im_name),
-                os.path.join(output_dir, 'vis'),
+                "{:d}_{:s}".format(i, im_name),
+                os.path.join(output_dir, "vis"),
                 cls_boxes_i,
                 segms=cls_segms_i,
                 keypoints=cls_keyps_i,
                 thresh=cfg.VIS_TH,
                 box_alpha=0.8,
                 dataset=dataset,
-                show_class=True
+                show_class=True,
             )
 
     cfg_yaml = yaml.dump(cfg)
     if ind_range is not None:
-        det_name = 'detection_range_%s_%s.pkl' % tuple(ind_range)
+        det_name = "detection_range_%s_%s.pkl" % tuple(ind_range)
     else:
-        det_name = 'detections.pkl'
+        det_name = "detections.pkl"
     det_file = os.path.join(output_dir, det_name)
     save_object(
         dict(
-            all_boxes=all_boxes,
-            all_segms=all_segms,
-            all_keyps=all_keyps,
-            cfg=cfg_yaml
-        ), det_file
+            all_boxes=all_boxes, all_segms=all_segms, all_keyps=all_keyps, cfg=cfg_yaml
+        ),
+        det_file,
     )
-    logger.info('Wrote detections to: {}'.format(os.path.abspath(det_file)))
+    logger.info("Wrote detections to: {}".format(os.path.abspath(det_file)))
     return all_boxes, all_segms, all_keyps
 
 
@@ -329,13 +331,13 @@ def initialize_model_from_cfg(args, gpu_id=0):
         load_name = args.load_ckpt
         logger.info("loading checkpoint %s", load_name)
         checkpoint = torch.load(load_name, map_location=lambda storage, loc: storage)
-        net_utils.load_ckpt(model, checkpoint['model'])
+        net_utils.load_ckpt(model, checkpoint["model"])
 
     if args.load_detectron:
         logger.info("loading detectron weights %s", args.load_detectron)
         load_detectron_weight(model, args.load_detectron)
 
-    model = mynn.DataParallel(model, cpu_keywords=['im_info', 'roidb'], minibatch=True)
+    model = mynn.DataParallel(model, cpu_keywords=["im_info", "roidb"], minibatch=True)
 
     return model
 
@@ -346,10 +348,9 @@ def get_roidb_and_dataset(dataset_name, proposal_file, ind_range):
     """
     dataset = JsonDataset(dataset_name)
     if cfg.TEST.PRECOMPUTED_PROPOSALS:
-        assert proposal_file, 'No proposal file given'
+        assert proposal_file, "No proposal file given"
         roidb = dataset.get_roidb(
-            proposal_file=proposal_file,
-            proposal_limit=cfg.TEST.PROPOSAL_LIMIT
+            proposal_file=proposal_file, proposal_limit=cfg.TEST.PROPOSAL_LIMIT
         )
     else:
         roidb = dataset.get_roidb()

@@ -1,20 +1,26 @@
 # vim: expandtab:ts=4:sw=4
 from __future__ import absolute_import
-import numpy as np
-#from sklearn.utils.linear_assignment_ import linear_assignment
-from scipy.optimize import linear_sum_assignment as linear_assignment
-from . import kalman_filter
-from .detection import to_tlbr
-from .detection import to_xyah
 
 import time
 
-INFTY_COST = 1e+5
+import numpy as np
+# from sklearn.utils.linear_assignment_ import linear_assignment
+from scipy.optimize import linear_sum_assignment as linear_assignment
+
+from . import kalman_filter
+from .detection import to_tlbr, to_xyah
+
+INFTY_COST = 1e5
 
 
 def min_cost_matching(
-        distance_metric, max_distance, tracks, detections, track_indices=None,
-        detection_indices=None):
+    distance_metric,
+    max_distance,
+    tracks,
+    detections,
+    track_indices=None,
+    detection_indices=None,
+):
     """Solve linear assignment problem.
 
     Parameters
@@ -55,30 +61,28 @@ def min_cost_matching(
 
     if len(detection_indices) == 0 or len(track_indices) == 0:
         return [], track_indices, detection_indices  # Nothing to match.
-    
-    #i= time.time()
-    
-    cost_matrix = distance_metric(
-        tracks, detections, track_indices, detection_indices)
-        
-    #print('    i: '+str(time.time() - i))     
-    
+
+    # i= time.time()
+
+    cost_matrix = distance_metric(tracks, detections, track_indices, detection_indices)
+
+    # print('    i: '+str(time.time() - i))
+
     cost_matrix[cost_matrix > max_distance] = max_distance + 1e-5
-    
-    
-    #k= time.time()
-    
+
+    # k= time.time()
+
     indices = linear_assignment(cost_matrix)
-    
-    #print('    k: '+str(time.time() - k), cost_matrix.shape) 
-    #print(cost_matrix) 
-    #print(' ')
-    
+
+    # print('    k: '+str(time.time() - k), cost_matrix.shape)
+    # print(cost_matrix)
+    # print(' ')
+
     indices = np.asarray(indices)
     indices = np.transpose(indices)
-    
-    #kk= time.time()
-    
+
+    # kk= time.time()
+
     matches, unmatched_tracks, unmatched_detections = [], [], []
     for col, detection_idx in enumerate(detection_indices):
         if col not in indices[:, 1]:
@@ -94,15 +98,21 @@ def min_cost_matching(
             unmatched_detections.append(detection_idx)
         else:
             matches.append((track_idx, detection_idx))
-    
-    #print('    kk: '+str(time.time() - kk))
-    
+
+    # print('    kk: '+str(time.time() - kk))
+
     return matches, unmatched_tracks, unmatched_detections
 
 
 def matching_cascade(
-        distance_metric, max_distance, cascade_depth, tracks, detections,
-        track_indices=None, detection_indices=None):
+    distance_metric,
+    max_distance,
+    cascade_depth,
+    tracks,
+    detections,
+    track_indices=None,
+    detection_indices=None,
+):
     """Run matching cascade.
 
     Parameters
@@ -146,39 +156,49 @@ def matching_cascade(
 
     unmatched_detections = detection_indices
     matches = []
-    
-    #m = time.time()
-    
+
+    # m = time.time()
+
     for level in range(cascade_depth):
         if len(unmatched_detections) == 0:  # No detections left
             break
 
         track_indices_l = [
-            k for k in track_indices
-            if tracks[k].time_since_update == 1 + level
+            k for k in track_indices if tracks[k].time_since_update == 1 + level
         ]
         if len(track_indices_l) == 0:  # Nothing to match at this level
             continue
 
-        matches_l, _, unmatched_detections = \
-            min_cost_matching(
-                distance_metric, max_distance, tracks, detections,
-                track_indices_l, unmatched_detections)
+        matches_l, _, unmatched_detections = min_cost_matching(
+            distance_metric,
+            max_distance,
+            tracks,
+            detections,
+            track_indices_l,
+            unmatched_detections,
+        )
         matches += matches_l
-        
-    #print('   m: '+str(time.time() - m))
-    #mm = time.time()
-    
+
+    # print('   m: '+str(time.time() - m))
+    # mm = time.time()
+
     unmatched_tracks = list(set(track_indices) - set(k for k, _ in matches))
-    
-    #print('   mm: '+str(time.time() - mm))
-    
+
+    # print('   mm: '+str(time.time() - mm))
+
     return matches, unmatched_tracks, unmatched_detections
 
 
 def gate_cost_matrix(
-        kf, cost_matrix, tracks, detections, track_indices, detection_indices,
-        gated_cost=INFTY_COST, only_position=False):
+    kf,
+    cost_matrix,
+    tracks,
+    detections,
+    track_indices,
+    detection_indices,
+    gated_cost=INFTY_COST,
+    only_position=False,
+):
     """Invalidate infeasible entries in cost matrix based on the state
     distributions obtained by Kalman filtering.
 
@@ -215,33 +235,34 @@ def gate_cost_matrix(
     """
     gating_dim = 2 if only_position else 4
     gating_threshold = kalman_filter.chi2inv95[gating_dim]
-    
-    #qq = time.time()
-    
+
+    # qq = time.time()
+
     ###!!!measurements = np.asarray([detections[i].to_xyah() for i in detection_indices])
     measurements = to_xyah(detections[detection_indices])
-    
-    #print('measurements')
-    #print(measurements.shape)
-    #print(measurements)
-    
-    #print('qqqqqqqqq: '+str(time.time() - qq))
-    #print(len(track_indices))
-    #w = time.time()
-    
+
+    # print('measurements')
+    # print(measurements.shape)
+    # print(measurements)
+
+    # print('qqqqqqqqq: '+str(time.time() - qq))
+    # print(len(track_indices))
+    # w = time.time()
+
     for row, track_idx in enumerate(track_indices):
         track = tracks[track_idx]
         gating_distance = kf.gating_distance(
-            track.mean, track.covariance, measurements, only_position)
-        #print('track.mean')
-        #print(track.mean.shape)
-        #print('track.covariance')
-        #print(track.covariance.shape)
-        #print('gating_distance')
+            track.mean, track.covariance, measurements, only_position
+        )
+        # print('track.mean')
+        # print(track.mean.shape)
+        # print('track.covariance')
+        # print(track.covariance.shape)
+        # print('gating_distance')
         ##print(gating_distance)
-        #print(gating_distance.shape)
+        # print(gating_distance.shape)
         cost_matrix[row, gating_distance > gating_threshold] = gated_cost
-    
-    #print('wwwwwwwwwwwww: '+str(time.time() - w))
-    
+
+    # print('wwwwwwwwwwwww: '+str(time.time() - w))
+
     return cost_matrix
