@@ -91,6 +91,9 @@ def process_vrd_split(in_split, out_split, split_set, obj_dict, pred_dict, issav
         for f_frames in sorted(os.listdir(f_frames_dir)):
             f_frames_path = f + "/" + f_frames
 
+            if f_frames_path not in person_bbox_anns:
+                continue
+
             if person_bbox_anns[f_frames_path]["bbox"].shape[0] <= 0:
                 continue
 

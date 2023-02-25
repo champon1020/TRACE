@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 
 def get_name_mapping(video_id, frame_id, cnt):
-    mapped_name = "{:012d}".format(cnt) + ".png"
+    mapped_name = "{:012d}".format(cnt) + ".jpg"
     return mapped_name
 
 
@@ -139,7 +139,7 @@ def process_vrd_split(pred_class_list, obj_class_list, out_split="train"):
             new_anns[mapped_name] = val
             size_dict[mapped_name] = (h, w)
 
-            f_frames_path = video_id + ".mp4" + "/" + "{:06d}".format(t) + ".png"  #
+            f_frames_path = video_id + ".mp4" + "/" + "{:06d}".format(t) + ".jpg"  #
             name_map[f_frames_path] = cnt
             name_list.append(f_frames_path)
             cnt += 1

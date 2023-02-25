@@ -42,8 +42,6 @@ import utils_rel.subprocess_rel as subprocess_utils
 import yaml
 from combine_tree.line_order_frame_pipe import \
     line_order_frame_pipe as LineOrderFramePipe
-from core.config import cfg
-from core.test_rel import im_detect_rels
 from datasets_rel import task_evaluation_sg as task_evaluation_sg
 from datasets_rel import \
     task_evaluation_vg_and_vrd as task_evaluation_vg_and_vrd
@@ -55,6 +53,9 @@ from torch.autograd import Variable
 from utils.detectron_weight_helper import load_detectron_weight
 from utils.io import save_object
 from utils.timer import Timer
+
+from core.config import cfg
+from core.test_rel import im_detect_rels
 
 logger = logging.getLogger(__name__)
 
@@ -466,7 +467,7 @@ def get_frames_blob(cur_image_abs_path, im0, im_id_st=1, line_order_frame_pipe=N
     for j in video_path_list:
         video_path = os.path.join(video_path, j)
     # video_path = os.path.join(video_path, 'all_frames')
-    video_path = os.path.join(video_path, "sampled_frames")
+    video_path = os.path.join(video_path, "frames")
     video_path = os.path.join(video_path, tot_video_path_list[-2])
 
     processed_frames = []
